@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeLab — Learn to code in your browser</title>
+<meta name="description" content="A free, in-browser IDE with 13 languages, friendly error messages, a line-by-line code visualizer, syntax guides and challenges.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237c9cff'/%3E%3Cpath d='M12 10l-6 6 6 6M20 10l6 6-6 6' stroke='%230b1020' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="#/" title="Back to all languages">
+    <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M12 10l-6 6 6 6M20 10l6 6-6 6" stroke="var(--accent-ink)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Code<b>Lab</b>
+  </a>
+
+  <div id="ideTools" class="tools" hidden>
+    <div class="menu-wrap">
+      <button class="btn" id="langBtn" aria-haspopup="true"><span class="langdot" id="langDot"></span><span id="langName">Language</span> ▾</button>
+      <div class="menu" id="langMenu" hidden></div>
+    </div>
+    <button class="btn primary" id="runBtn" title="Run (Ctrl+Enter)">▶ <span class="lbl">Run</span></button>
+    <button class="btn danger" id="stopBtn" hidden title="Stop the program">■ <span class="lbl">Stop</span></button>
+    <div class="sep"></div>
+    <button class="btn" id="tgGuide" title="Syntax guide, best practices & challenges">📖 <span class="lbl">Guide</span></button>
+    <button class="btn" id="tgTerm" title="Show / hide terminal (Ctrl+`)">⌨ <span class="lbl">Terminal</span><span class="dot"></span></button>
+    <button class="btn" id="tgViz" title="Show / hide line-by-line visualizer">👁 <span class="lbl">Visualizer</span></button>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="tools">
+    <button class="btn ghost" id="helpBtn" title="Keyboard shortcuts">?</button>
+    <button class="btn ghost" id="themeBtn" title="Toggle light / dark theme">◐</button>
+  </div>
+</header>
+
+<!-- ===================== HOME ===================== -->
+<main id="home">
+  <section class="hero">
+    <h1>Learn to code by <span>actually coding</span></h1>
+    <p>Pick a language, write whatever you like, and watch it run. Friendly error messages, a line-by-line visualizer, and syntax guides for beginners and veterans alike.</p>
+    <div class="cta">
+      <a class="btn primary" href="#/python">Start with Python</a>
+      <a class="btn" href="#/javascript">Try JavaScript</a>
+      <a class="btn" href="#" id="resumeBtn" hidden>Resume</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Choose a language</h2>
+    <div class="filters">
+      <input type="search" id="langSearch" placeholder="Search languages…" aria-label="Search languages">
+      <button class="chip on" data-f="all">All</button>
+      <button class="chip" data-f="browser">Runs instantly</button>
+      <button class="chip" data-f="cloud">Compiled (cloud runner)</button>
+    </div>
+    <div class="grid" id="langGrid"></div>
+  </section>
+
+  <section class="section">
+    <h2>Everything you need to learn</h2>
+    <div class="features">
+      <div class="feature"><h4>💻 A real editor</h4><p>Syntax highlighting, auto-complete, bracket matching, line numbers and keyboard shortcuts — just like a desktop IDE.</p></div>
+      <div class="feature"><h4>⌨ Terminal with friendly errors</h4><p>Real error output, the offending line highlighted in your code, and a plain-English “what this means” explanation. Hide it any time.</p></div>
+      <div class="feature"><h4>👁 Line-by-line visualizer</h4><p>Step through your program and see variables, lists, objects, the call stack and output change after every line. Tables for SQL, a tree for HTML.</p></div>
+      <div class="feature"><h4>📖 Syntax guides</h4><p>Every language has a guide from “Hello, World” to advanced features. Filter by level, load any example into the editor, track your progress.</p></div>
+      <div class="feature"><h4>🏁 Challenges</h4><p>Self-checking exercises: write code, press Check, and get instant pass/fail feedback.</p></div>
+      <div class="feature"><h4>🔗 Share & save</h4><p>Your code autosaves in your browser. Share a link to your code, or download it as a file.</p></div>
+    </div>
+  </section>
+  <div class="footer">CodeLab runs JavaScript, Python, Lua, SQL and HTML right in your browser. Compiled languages are compiled by the free Wandbox online service.</div>
+</main>
+
+<!-- ===================== IDE ===================== -->
+<div id="ide" hidden>
+  <aside id="guide" class="pane">
+    <div class="pane-head">
+      <div class="tabs" id="guideTabs">
+        <button class="tab on" data-tab="syntax">Syntax</button>
+        <button class="tab" data-tab="best">Best practices</button>
+        <button class="tab" data-tab="chal">Challenges</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn sm ghost" id="guideFull" title="Open the guide full-screen">⤢ Full page</button>
+    </div>
+    <div class="guide-body" id="guideBody"></div>
+  </aside>
+  <div class="splitter" data-split="guide"></div>
+
+  <section id="center">
+    <div class="editor-bar">
+      <div class="filetab"><span class="langdot" id="fileDot"></span><span id="fileName">main</span></div>
+      <div class="spacer"></div>
+      <button class="btn sm ghost" id="fsMinus" title="Smaller text">A−</button>
+      <button class="btn sm ghost" id="fsPlus" title="Larger text">A+</button>
+      <button class="btn sm ghost" id="copyBtn" title="Copy code">Copy</button>
+      <button class="btn sm ghost" id="shareBtn" title="Copy a link that contains your code">Share</button>
+      <button class="btn sm ghost" id="dlBtn" title="Download as a file">Download</button>
+      <button class="btn sm ghost" id="resetBtn" title="Reset to the starter example">Reset</button>
+    </div>
+    <div id="editorWrap"></div>
+    <div class="splitter h" data-split="term"></div>
+    <div id="termPanel">
+      <div class="pane-head">
+        <div class="tabs" id="outTabs">
+          <button class="tab on" data-out="term">Terminal</button>
+          <button class="tab" data-out="preview" hidden>Preview</button>
+        </div>
+        <span class="status" id="runStatus">Ready</span>
+        <div class="spacer"></div>
+        <label style="font-size:12px;color:var(--muted);display:flex;gap:4px;align-items:center"><input type="checkbox" id="clearOnRun" checked> clear on run</label>
+        <button class="btn sm ghost" id="termClear">Clear</button>
+        <button class="btn sm ghost" id="termHide" title="Hide terminal">✕ Hide</button>
+      </div>
+      <div class="term-body" id="termBody" tabindex="0"></div>
+      <iframe id="preview" title="HTML preview" sandbox="allow-scripts allow-modals allow-forms allow-popups" hidden></iframe>
+      <div class="stdin" id="stdinBox">
+        <label for="stdin">Program input (stdin):</label>
+        <textarea id="stdin" placeholder="Anything your program reads (input(), scanf, Scanner…) — one line per answer"></textarea>
+      </div>
+    </div>
+    <div class="statusbar">
+      <span id="sbPos">Ln 1, Col 1</span><span id="sbLang"></span><span id="sbEngine"></span>
+      <span class="spacer"></span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> run · <kbd>Ctrl</kbd>+<kbd>Space</kbd> suggest</span>
+    </div>
+  </section>
+
+  <div class="splitter" data-split="viz"></div>
+  <aside id="viz" class="pane">
+    <div class="pane-head">
+      <h3>Visualizer</h3><span class="pill" id="vizMode"></span>
+      <div class="spacer"></div>
+      <button class="btn sm ghost" id="vizClose" title="Hide visualizer">✕</button>
+    </div>
+    <div class="viz-note" id="vizNote"></div>
+    <div class="viz-controls" id="vizControls">
+      <div class="row">
+        <button class="btn" id="vFirst" title="First step">⏮</button>
+        <button class="btn" id="vPrev" title="Previous step">◀</button>
+        <button class="btn primary" id="vPlay" title="Play / pause">▶</button>
+        <button class="btn" id="vNext" title="Next step">▶|</button>
+        <button class="btn" id="vLast" title="Last step">⏭</button>
+        <span class="spacer"></span>
+        <select id="vSpeed" title="Playback speed"><option value="1300">Slow</option><option value="700" selected>Normal</option><option value="250">Fast</option></select>
+      </div>
+      <div class="row"><input type="range" id="vSlider" min="0" max="0" value="0"><span id="vCount" style="font:12px var(--mono);color:var(--muted);min-width:64px;text-align:right">0 / 0</span></div>
+    </div>
+    <div class="viz-body" id="vizBody" tabindex="0"></div>
+  </aside>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/mode/simple.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/rust/rust.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/go/go.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/ruby/ruby.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/lua/lua.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/php/php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/runmode/runmode.min.js"></script>
+
+<script src="js/langs/web.js"></script>
+<script src="js/langs/scripting.js"></script>
+<script src="js/langs/systems.js"></script>
+<script src="js/langs/managed.js"></script>
+<script src="js/challenges.js"></script>
+<script src="js/errors.js"></script>
+<script src="js/trace.js"></script>
+<script src="js/engines.js"></script>
+<script src="js/viz.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
