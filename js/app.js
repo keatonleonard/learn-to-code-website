@@ -194,8 +194,13 @@
   /* ---------------------------------------------------------------- terminal */
   const term = () => $('termBody');
   function termClear() { term().innerHTML = ''; }
+  const TERM_KINDS = ['out', 'err', 'warn', 'sys', 'ok'];
+  // Line/column numbers can come from user-run code (workers, preview iframe); only accept positive integers.
+  const toLine = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
   function termWrite(kind, text) {
     if (!text) return;
+    if (!TERM_KINDS.includes(kind)) kind = 'out';
+    text = String(text);
     if (kind === 'out' || kind === 'err' || kind === 'warn') { S.out += text; if (kind === 'out') S.stdout += text; }
     const t = term();
     const last = t.lastChild;
@@ -206,8 +211,13 @@
   }
   const termSys = (t) => termWrite('sys', t);
   function setStatus(cls, text) { const s = $('runStatus'); s.className = 'status ' + (cls || ''); s.textContent = text; }
-  function showError(err) {
+  function showError(raw) {
     const lang = S.lang;
+    const err = {
+      type: String(raw.type || 'Error'), message: String(raw.message == null ? '' : raw.message),
+      line: toLine(raw.line), col: toLine(raw.col), text: raw.text == null ? '' : String(raw.text),
+      marks: Array.isArray(raw.marks) ? raw.marks : []
+    };
     const text = err.text || (err.type + ': ' + err.message);
     const service = /^(RateLimited|RunnerBusy|NetworkError|LoadError|InternalError)$/.test(err.type);
     const hint = service ? null : window.Hints.explain(lang.id, text + '\n' + err.type + ': ' + err.message);
@@ -219,7 +229,7 @@
     term().appendChild(d);
     term().scrollTop = term().scrollHeight;
     if (err.line) markLine(err.line, err.col, 'err', err.type + ': ' + err.message);
-    (err.marks || []).forEach((m) => markLine(m.line, m.col, m.kind, m.kind === 'warn' ? 'Compiler warning' : 'Error'));
+    err.marks.forEach((m) => markLine(toLine(m.line), toLine(m.col), m.kind === 'warn' ? 'warn' : 'err', m.kind === 'warn' ? 'Compiler warning' : 'Error'));
     if (!S.ui.term) { $('tgTerm').classList.add('alert'); toast('✖ ' + esc(err.type || 'Error') + (err.line ? ' on line ' + err.line : '') + ' — open the terminal to see details'); }
   }
   function setOutTab(tab) {
@@ -427,7 +437,18 @@
     if (opts && opts.guide) S.ui.guide = true;
     if (opts && opts.code !== undefined) { setCode(opts.code, false); toast('Loaded shared code.'); }
     applyLayout();
-    if (lang.engine === 'html' && changed && S.cm.getValue().trim()) setTimeout(() => run(), 50);
+    if (lang.engine === 'html' && changed && S.cm.getValue().trim()) {
+      // In browsers that run the preview on the page's own thread, saved code with an endless loop could freeze
+      // the page on every visit. The flag is cleared shortly after a successful auto-run; if it survives, skip once.
+      if (store.get('previewPending', false)) {
+        store.set('previewPending', false);
+        toast('The automatic preview was skipped because the page stopped responding last time. Press ▶ Run when you\'re ready.', 6000);
+      } else {
+        store.set('previewPending', true);
+        setTimeout(() => run(), 50);
+        setTimeout(() => store.set('previewPending', false), 2500);
+      }
+    }
   }
 
   /* ---------------------------------------------------------------- routing */
@@ -525,10 +546,13 @@
 
     window.addEventListener('message', (e) => {
       if (e.source !== $('preview').contentWindow || !e.data || !e.data.__lc) return;
+      // The preview runs untrusted page code, so treat every field as untrusted data.
       const d = e.data;
+      const text = String(d.text == null ? '' : d.text);
+      const line = toLine(d.line);
       setConsoleCount(consoleCount + 1);
-      if (d.kind === 'jserror') showError({ type: 'JavaScript error', message: d.text, line: d.line, text: d.text + (d.line ? ' (line ' + d.line + ')' : '') });
-      else termWrite(d.kind, d.text + '\n');
+      if (d.kind === 'jserror') showError({ type: 'JavaScript error', message: text, line, text: text + (line ? ' (line ' + line + ')' : '') });
+      else termWrite(['out', 'warn', 'err'].includes(d.kind) ? d.kind : 'out', text + '\n');
     });
 
     $('helpBtn').onclick = showShortcuts;

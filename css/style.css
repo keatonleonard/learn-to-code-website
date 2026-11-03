@@ -100,9 +100,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 /* ---------- IDE layout ---------- */
 #ide { flex: 1; display: flex; min-height: 0; min-width: 0; }
 .pane { background: var(--panel); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-#guide { width: 400px; flex: none; }
-#viz { width: 380px; flex: none; }
-#center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+/* Side panels keep their chosen width when there's room, but shrink (down to 240px) so the editor never drops below 360px. */
+#guide { width: 400px; flex: 0 1 auto; min-width: 240px; }
+#viz { width: 380px; flex: 0 1 auto; min-width: 240px; }
+#center { flex: 1 1 0; display: flex; flex-direction: column; min-width: 360px; container-type: inline-size; }
+#center .editor-bar { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+#center .statusbar, #termPanel .pane-head { white-space: nowrap; overflow: hidden; }
+/* When the editor column is narrow (side panels open on a small screen), drop secondary labels instead of wrapping. */
+@container (max-width: 600px) {
+  .statusbar > span:last-child, #sbEngine, .stdin label, #termPanel .opt-text { display: none; }
+  .editor-bar .btn.sm { padding: 2px 6px; }
+}
 #ide.guide-full #center, #ide.guide-full #viz, #ide.guide-full .splitter { display: none; }
 #ide.guide-full #guide { width: auto; flex: 1; }
 #ide.guide-full .guide-body { max-width: 900px; margin: 0 auto; width: 100%; }
@@ -275,7 +283,8 @@ table.data th, table.data td { border: 1px solid var(--border); padding: 2px 8px
 @media (max-width: 1100px) { #guide { width: 320px; } #viz { width: 320px; } }
 @media (max-width: 860px) {
   #ide { flex-direction: column; overflow: auto; }
-  #guide, #viz { width: auto; height: 70vh; flex: none; }
+  #guide, #viz { width: auto !important; min-width: 0; height: 70vh; flex: none; }
+  #center { min-width: 0; }
   #center { flex: none; height: 92vh; order: -1; }
   .splitter { display: none; }
   .tools .lbl { display: none; }

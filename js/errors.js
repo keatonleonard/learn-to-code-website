@@ -162,7 +162,8 @@
     const list = (H[langId] || []).concat(langId === 'html' ? [] : []);
     for (const [re, tip] of list) {
       const m = re.exec(text);
-      if (m) return tip.replace(/\$(\d)/g, (x, n) => (m[+n] !== undefined ? m[+n].replace(/</g, '&lt;') : ''));
+      // Captured text comes from error messages, which user code controls — escape it fully before it goes into HTML.
+      if (m) return tip.replace(/\$(\d)/g, (x, n) => (m[+n] !== undefined ? m[+n].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') : ''));
     }
     return null;
   }

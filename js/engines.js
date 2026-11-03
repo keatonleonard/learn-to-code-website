@@ -9,11 +9,17 @@
   const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
   const SQLJS = 'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/';
 
+  // Subresource Integrity: the browser refuses these files if the CDN ever serves different contents.
+  const SRI = {
+    [ACORN]: 'sha384-ZzOQATwraE9ywaYqMdoWStSsI1G6qRnAvJpKgcT3mrvl8PC5IlfxGzIu1WGBvydm',
+    [SQLJS + 'sql-wasm.js']: 'sha384-8D3Rsfo535FqoC1pHCCQMrNf75UgzyoG/HQm9zOzITRrz3QKzecc2E7JXKGCXoWu'
+  };
   const scripts = {};
   function loadScript(src) {
     if (!scripts[src]) {
       scripts[src] = new Promise((res, rej) => {
         const s = document.createElement('script');
+        if (SRI[src]) { s.integrity = SRI[src]; s.crossOrigin = 'anonymous'; }
         s.src = src; s.onload = res;
         s.onerror = () => { delete scripts[src]; rej(new Error('Could not download ' + src.split('/').slice(-1)[0] + '. Check your internet connection.')); };
         document.head.appendChild(s);
@@ -694,8 +700,9 @@ return ok, ok and '' or tostring(e), 'runtime'
     const tables = [];
     const r = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
     if (r[0]) r[0].values.forEach(([name]) => {
-      const cols = db.exec('PRAGMA table_info("' + name + '")');
-      const data = db.exec('SELECT * FROM "' + name + '" LIMIT 50');
+      const ident = '"' + String(name).replace(/"/g, '""') + '"';
+      const cols = db.exec('PRAGMA table_info(' + ident + ')');
+      const data = db.exec('SELECT * FROM ' + ident + ' LIMIT 50');
       tables.push({ name, cols: cols[0] ? cols[0].values.map((v) => v[1]) : [], rows: data[0] ? data[0].values : [] });
     });
     return tables;
@@ -837,8 +844,9 @@ return ok, ok and '' or tostring(e), 'runtime'
           const text = cerr || cmsg || 'Compilation failed.';
           const marks = wbParseLines(text);
           // Prefer the first location that follows the first "error" (Rust prints locations on the line after the message).
+          // GCC puts the location before "error" on the same line, so start at the beginning of that line.
           const errAt = text.search(/\berror\b/i);
-          const first = (errAt >= 0 && wbParseLines(text.slice(errAt))[0]) || marks.find((m) => m.kind === 'err') || marks[0];
+          const first = (errAt >= 0 && wbParseLines(text.slice(text.lastIndexOf('\n', errAt) + 1))[0]) || marks.find((m) => m.kind === 'err') || marks[0];
           const firstLine = text.split('\n').find((l) => /error/i.test(l)) || text.split('\n')[0];
           return finish({ ok: false, mode: 'explain', error: { type: 'CompileError', message: firstLine.replace(/^.*?(?:error[^:]*:|error\[[^\]]*\]:)\s*/i, '').trim() || firstLine, line: first && first.line, col: first && first.col, text, marks } });
         }
@@ -866,6 +874,41 @@ return ok, ok and '' or tostring(e), 'runtime'
     });
   }
 
+  /* ======================================================= result sanitising
+     Traces and errors are produced inside workers that run the learner's (or a share link's) code,
+     which can post arbitrary messages. Normalise them to the expected shapes and types. */
+  const toLine = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+  function cleanVal(v, d) {
+    if (!v || typeof v !== 'object' || d > 6) return { t: 'ref', v: '…' };
+    const o = { t: String(v.t), v: v.v == null ? '' : String(v.v) };
+    if (v.k != null) o.k = String(v.k);
+    if (v.n != null) o.n = Number(v.n) || 0;
+    if (o.t === 'list') o.items = Array.isArray(v.items) ? v.items.slice(0, 50).map((x) => cleanVal(x, d + 1)) : [];
+    else if (o.t === 'dict') o.items = Array.isArray(v.items) ? v.items.slice(0, 50).map((p) => (Array.isArray(p) ? [cleanVal(p[0], d + 1), cleanVal(p[1], d + 1)] : [cleanVal(null), cleanVal(null)])) : [];
+    return o;
+  }
+  function cleanVars(vars) {
+    if (!vars || typeof vars !== 'object') return null;
+    const out = {};
+    Object.keys(vars).slice(0, 200).forEach((k) => { out[k] = cleanVal(vars[k], 0); });
+    return out;
+  }
+  function cleanResult(res) {
+    if (!res || typeof res !== 'object') return { ok: false, error: { type: 'InternalError', message: 'The runner returned no result.' } };
+    if (res.error) {
+      const e = res.error;
+      res.error = { type: String(e.type || 'Error'), message: String(e.message == null ? '' : e.message), line: toLine(e.line), col: toLine(e.col), text: e.text == null ? undefined : String(e.text), marks: Array.isArray(e.marks) ? e.marks : undefined };
+    }
+    if (res.steps && res.mode === 'trace') {
+      res.steps = Array.isArray(res.steps) ? res.steps.slice(0, MAX_STEPS + 1).filter((s) => s && typeof s === 'object').map((s) => {
+        const st = { line: toLine(s.line) || 0, out: Math.max(0, Number(s.out) || 0), frames: Array.isArray(s.frames) ? s.frames.slice(0, 200).filter((f) => f && typeof f === 'object').map((f) => ({ name: String(f.name == null ? '?' : f.name), vars: cleanVars(f.vars) })) : [] };
+        if (s.ret) st.ret = cleanVal(s.ret, 0);
+        return st;
+      }) : null;
+    }
+    return res;
+  }
+
   /* ======================================================= dispatcher */
   let current = null;
   const Engines = {
@@ -874,14 +917,8 @@ return ok, ok and '' or tostring(e), 'runtime'
       const o = Object.assign({ stdin: '', trace: false, emit() {}, clear() {}, status() {}, preview() {} }, opts);
       o.setCurrent = (c) => { current = c; };
       try {
-        switch (lang.engine) {
-          case 'js': return await runJS(lang, code, o);
-          case 'py': return await runPython(lang, code, o);
-          case 'lua': return await runLua(lang, code, o);
-          case 'sql': return await runSQL(lang, code, o);
-          case 'html': return await runHTML(lang, code, o);
-          default: return await runWandbox(lang, code, o);
-        }
+        const run = { js: runJS, py: runPython, lua: runLua, sql: runSQL, html: runHTML }[lang.engine] || runWandbox;
+        return cleanResult(await run(lang, code, o));
       } catch (e) {
         current = null;
         return { ok: false, error: { type: 'InternalError', message: (e && e.message) || String(e) } };

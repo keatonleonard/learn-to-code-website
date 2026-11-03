@@ -3,6 +3,8 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // Steps are recorded inside workers running user code, so numbers in them are coerced before use.
+  const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
   const V = {
     steps: [], i: 0, mode: null, lang: null, code: '', lines: [], output: '', timer: null, frameSel: null, stale: false, cb: {},
@@ -107,7 +109,7 @@
       if (!line) return '<div class="v-cap"><div class="ln">Program finished</div><div class="why">' + (extra || 'This is the final state of your variables after the last line ran.') + '</div></div>';
       const src = this.lines[line - 1] || '';
       const ex = window.Trace.explainLine(this.lang.id, src);
-      return '<div class="v-cap"><div class="ln">Line ' + line + (extra ? ' · ' + extra : '') + '</div><div class="src">' + esc(src.trim()) + '</div>' + (ex ? '<div class="why">' + ex.text + '</div>' : '') + '</div>';
+      return '<div class="v-cap"><div class="ln">Line ' + num(line) + (extra ? ' · ' + extra : '') + '</div><div class="src">' + esc(src.trim()) + '</div>' + (ex ? '<div class="why">' + ex.text + '</div>' : '') + '</div>';
     },
 
     /* ---------- live trace ---------- */
@@ -150,7 +152,7 @@
         else if (JSON.stringify(before) !== now) { cls = ' changed'; was = '<span class="was" title="previous value">' + esc(this.plain(before)) + '</span>'; }
       }
       const type = v.k || ({ int: 'int', float: 'float', str: 'string', bool: 'bool', none: v.v, list: 'list', dict: 'dict', ref: 'ref' }[v.t] || v.t);
-      return '<div class="var' + cls + '"><div class="vn">' + esc(name) + ' <span class="vt">' + esc(type) + (v.n !== undefined ? ' · ' + v.n : '') + '</span>' + was + '</div>' + this.val(v) + '</div>';
+      return '<div class="var' + cls + '"><div class="vn">' + esc(name) + ' <span class="vt">' + esc(type) + (v.n !== undefined ? ' · ' + num(v.n) : '') + '</span>' + was + '</div>' + this.val(v) + '</div>';
     },
     plain(v) {
       if (!v) return '';
@@ -181,7 +183,7 @@
       let h = '';
       if (this.info.error && this.i === this.steps.length - 1) h += '<div class="v-cap" style="border-left-color:var(--danger)"><b style="color:var(--danger)">The next statement failed:</b> ' + esc(this.info.error) + '</div>';
       const ex = window.Trace.explainLine('sql', s.sql);
-      h += '<div class="v-cap"><div class="ln">Statement ' + (this.i + 1) + ' · line ' + s.line + '</div><div class="src">' + esc(s.sql) + '</div>' + (ex ? '<div class="why">' + ex.text + '</div>' : '') + '</div>';
+      h += '<div class="v-cap"><div class="ln">Statement ' + (this.i + 1) + ' · line ' + num(s.line) + '</div><div class="src">' + esc(s.sql) + '</div>' + (ex ? '<div class="why">' + ex.text + '</div>' : '') + '</div>';
       if (s.result) h += '<div class="v-h">Result (' + s.result.rows.length + ' rows)</div><div class="dbtable">' + this.table(s.result.cols, s.result.rows) + '</div>';
       else if (s.msg) h += '<div class="ret">✓ ' + esc(s.msg) + '</div>';
       const prev = this.steps[this.i - 1];
@@ -197,7 +199,7 @@
 
     /* ---------- DOM ---------- */
     renderDOM(s) {
-      let h = '<div class="v-cap"><div class="ln">Line ' + s.line + ' · ' + (s.kind === 'css' ? 'CSS rule' : '&lt;' + esc(s.tag) + '&gt; element') + '</div><div class="src">' + esc(s.src.length > 120 ? s.src.slice(0, 117) + '…' : s.src) + '</div><div class="why">' + s.text + (s.kind === 'tag' && s.depth ? ' It is nested ' + s.depth + ' level' + (s.depth > 1 ? 's' : '') + ' deep.' : '') + '</div></div>';
+      let h = '<div class="v-cap"><div class="ln">Line ' + num(s.line) + ' · ' + (s.kind === 'css' ? 'CSS rule' : '&lt;' + esc(s.tag) + '&gt; element') + '</div><div class="src">' + esc(s.src.length > 120 ? s.src.slice(0, 117) + '…' : s.src) + '</div><div class="why">' + s.text + (s.kind === 'tag' && s.depth ? ' It is nested ' + s.depth + ' level' + (s.depth > 1 ? 's' : '') + ' deep.' : '') + '</div></div>';
       if (s.kind === 'css' && s.attrs) h += '<div class="v-h">Declarations</div><table class="kv">' + s.attrs.split(';').filter((x) => x.trim()).map((d) => { const [p, ...v] = d.split(':'); return '<tr><td class="k">' + esc(p.trim()) + '</td><td>' + esc(v.join(':').trim()) + '</td></tr>'; }).join('') + '</table>';
       h += '<div class="v-h">Page structure</div><div class="tree">';
       this.steps.forEach((t, k) => {
@@ -212,7 +214,7 @@
     renderExplain(s) {
       let h = '';
       if (this.info.error && s.line === this.info.errorLine) h += '<div class="v-cap" style="border-left-color:var(--danger)"><b style="color:var(--danger)">The compiler/runtime reported an error on this line:</b> ' + esc(this.info.error) + '</div>';
-      h += '<div class="v-cap"><div class="ln">Line ' + s.line + '</div><div class="src">' + esc(s.src) + '</div><div class="why">' + s.text + '</div></div>';
+      h += '<div class="v-cap"><div class="ln">Line ' + num(s.line) + '</div><div class="src">' + esc(s.src) + '</div><div class="why">' + s.text + '</div></div>';
       if (s.declared.length) {
         h += '<div class="v-h">Variables declared so far (as written)</div><table class="kv">' + s.declared.map((d) => '<tr><td class="k">' + esc(d.name) + '</td><td>' + (d.type ? '<span class="tx" style="color:var(--muted)">' + esc(d.type) + '</span> ' : '') + esc(d.init || '—') + '</td></tr>').join('') + '</table>';
       }
