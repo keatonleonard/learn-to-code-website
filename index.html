@@ -1,31 +1,90 @@
 <!doctype html>
 <html lang="en" data-theme="dark">
+<!-- The <head> holds information ABOUT the page (its title, character set, styles).
+     Nothing inside <head> is drawn on the screen directly. -->
 <head>
 <meta charset="utf-8">
+<!-- ================================================================
+      index.html: the one and only web page of CodeLab
+     ================================================================
+      HOW THIS WEBSITE IS BUILT (a quick tour for brand new coders):
+      * HTML (HyperText Markup Language): this file. It describes the
+        STRUCTURE of the page: the buttons, panels and text.
+      * CSS (Cascading Style Sheets): css/style.css. It describes how
+        things LOOK: colours, sizes, positions.
+      * JavaScript: the files in the js/ folder. It makes the page DO
+        things: run code, react to clicks, save your work.
+
+      KEY WORDS used in this file:
+      * Element / tag: a building block of a page, written like <p>...</p>.
+        The part in angle brackets is the "tag"; <p> opens, </p> closes.
+      * Attribute: extra information inside an opening tag, like
+        class="btn" or id="runBtn".
+      * id: a unique name for one element, so JavaScript can find it.
+      * class: a label shared by many elements, so CSS can style them all.
+      * Comment: a note for humans like this one. The browser ignores it.
+
+      This page is a "single page app": there is only ONE HTML file.
+      JavaScript shows and hides parts of it (the home screen, the code
+      editor) instead of loading separate pages.
+     ================================================================
+
+     The "viewport" setting makes the page fit phone screens properly
+     instead of showing a tiny zoomed out desktop page. -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- <title> is the text shown on the browser tab and in bookmarks. -->
 <title>CodeLab — Learn to code in your browser</title>
+<!-- A short summary that search engines (like Google) show under the link. -->
 <meta name="description" content="A free, in-browser IDE with 13 languages, friendly error messages, a line-by-line code visualizer, syntax guides and challenges.">
+<!-- The little picture on the browser tab (the "favicon"). It is an SVG
+     (Scalable Vector Graphics: a picture described with text instead of
+     pixels) written directly into the link, so no image file is needed. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237c9cff'/%3E%3Cpath d='M12 10l-6 6 6 6M20 10l6 6-6 6' stroke='%230b1020' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<!-- STYLESHEETS (CSS files) the page uses.
+     These first two come from a CDN (Content Delivery Network: a fast public
+     server that hosts popular code libraries for any website to use).
+     They style CodeMirror, the ready made code editor library this site uses.
+      * integrity="sha384...": a fingerprint of the exact file. If the CDN ever
+        sends a different (possibly hacked) file, the browser refuses it.
+      * crossorigin="anonymous": needed for the fingerprint check to work on a
+        file from another website. It sends no cookies or personal data. -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" integrity="sha384-zaeBlB/vwYsDRSlFajnDd7OydJ0cWk+c2OWybl3eSUf6hW2EbhlCsQPqKr3gkznT" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css" integrity="sha384-TU/qRI67N04B589luYdn1ZMRIGgJic3GB1WsvLJTRh92VO26vpxI4dCKiDtsR4fw" crossorigin="anonymous">
+<!-- Our own stylesheet, the one that gives CodeLab its look. -->
 <link rel="stylesheet" href="css/style.css">
 </head>
+<!-- The <body> holds everything you actually see on the page. -->
 <body>
 
+<!-- =================== TOP BAR ===================
+     The strip across the top of every screen: logo, language picker,
+     Run/Stop buttons, panel toggles, help and theme buttons. -->
 <header class="topbar">
+  <!-- The CodeLab logo. It is a link to "#/", which JavaScript reads as
+       "go to the home screen". (Everything after # in the address is called
+       the "hash"; this site uses it to know which screen to show.) -->
   <a class="brand" href="#/" title="Back to all languages">
     <svg viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M12 10l-6 6 6 6M20 10l6 6-6 6" stroke="var(--accent-ink)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
     Code<b>Lab</b>
   </a>
 
+  <!-- Tools that only make sense while coding. "hidden" means they start
+       invisible; JavaScript (js/app.js) shows them when you open a language. -->
   <div id="ideTools" class="tools" hidden>
+    <!-- The language picker: a button plus a drop down menu. The menu's list
+         of languages is filled in by JavaScript (buildLangMenu in js/app.js). -->
     <div class="menu-wrap">
       <button class="btn" id="langBtn" aria-haspopup="true"><span class="langdot" id="langDot"></span><span id="langName">Language</span> ▾</button>
       <div class="menu" id="langMenu" hidden></div>
     </div>
+    <!-- Run runs your code. Stop only appears while a program is running.
+         The <span class="lbl"> words are hidden on narrow screens to save room. -->
     <button class="btn primary" id="runBtn" title="Run (Ctrl+Enter)">▶ <span class="lbl">Run</span></button>
     <button class="btn danger" id="stopBtn" hidden title="Stop the program">■ <span class="lbl">Stop</span></button>
     <div class="sep"></div>
+    <!-- Toggle buttons that show or hide the three panels: the Guide (left),
+         the Terminal (bottom) and the Visualizer (right). The red "dot" inside the
+         Terminal button blinks when an error happens while the terminal is hidden. -->
     <button class="btn" id="tgGuide" title="Syntax guide, best practices & challenges">📖 <span class="lbl">Guide</span></button>
     <button class="btn" id="tgTerm" title="Show / hide terminal (Ctrl+`)">⌨ <span class="lbl">Terminal</span><span class="dot"></span></button>
     <button class="btn" id="tgViz" title="Show / hide line-by-line visualizer">👁 <span class="lbl">Visualizer</span></button>
@@ -33,13 +92,21 @@
 
   <div class="spacer"></div>
   <div class="tools">
+    <!-- Always visible: "?" opens the keyboard shortcut list, and the half
+         circle switches between the dark and light colour themes. -->
     <button class="btn ghost" id="helpBtn" title="Keyboard shortcuts">?</button>
     <button class="btn ghost" id="themeBtn" title="Toggle light / dark theme">◐</button>
   </div>
 </header>
 
+<!-- =================== HOME SCREEN ===================
+     <main id="home"> is the landing page: a welcome message, the grid of
+     language cards and a list of features. It is hidden while you code. -->
 <!-- ===================== HOME ===================== -->
 <main id="home">
+  <!-- The "hero" is the big welcome banner at the top of a home page.
+       Links starting with "#/" open a language without reloading the page.
+       The Resume button is filled in by JavaScript with the last language you used. -->
   <section class="hero">
     <h1>Learn to code by <span>actually coding</span></h1>
     <p>Pick a language, write whatever you like, and watch it run. Friendly error messages, a line-by-line visualizer, and syntax guides for beginners and veterans alike.</p>
@@ -51,6 +118,9 @@
   </section>
 
   <section class="section">
+    <!-- Search box and filter "chips" (small rounded buttons). data-f="..."
+         is a custom data attribute: a place to store extra information on an
+         element for JavaScript to read. Here it says which filter the chip applies. -->
     <h2>Choose a language</h2>
     <div class="filters">
       <input type="search" id="langSearch" placeholder="Search languages…" aria-label="Search languages">
@@ -58,10 +128,13 @@
       <button class="chip" data-f="browser">Runs instantly</button>
       <button class="chip" data-f="cloud">Compiled (cloud runner)</button>
     </div>
+    <!-- Empty on purpose: JavaScript (renderHome in js/app.js) creates one card
+         per language here, using the language list in js/langs/. -->
     <div class="grid" id="langGrid"></div>
   </section>
 
   <section class="section">
+    <!-- A static (never changing) list of the site's features for new visitors. -->
     <h2>Everything you need to learn</h2>
     <div class="features">
       <div class="feature"><h4>💻 A real editor</h4><p>Syntax highlighting, auto-complete, bracket matching, line numbers and keyboard shortcuts — just like a desktop IDE.</p></div>
@@ -75,8 +148,18 @@
   <div class="footer">CodeLab runs JavaScript, Python, Lua, SQL and HTML right in your browser. Compiled languages are compiled by the free Wandbox online service.</div>
 </main>
 
+<!-- =================== THE CODING SCREEN (IDE) ===================
+     IDE means Integrated Development Environment: an editor plus the tools
+     to run and inspect code, all in one place. It has three columns:
+       1. #guide  : the syntax guide on the left
+       2. #center : the code editor and terminal in the middle
+       3. #viz    : the visualizer on the right
+     "Splitters" are the thin bars between columns that you drag to resize them. -->
 <!-- ===================== IDE ===================== -->
 <div id="ide" hidden>
+  <!-- LEFT COLUMN: the guide. <aside> means "side content". Its three tabs
+       switch between the syntax lessons, best practices and challenges. The
+       lessons themselves are written into #guideBody by JavaScript. -->
   <aside id="guide" class="pane">
     <div class="pane-head">
       <div class="tabs" id="guideTabs">
@@ -89,9 +172,13 @@
     </div>
     <div class="guide-body" id="guideBody"></div>
   </aside>
+  <!-- Drag handle between the guide and the editor. -->
   <div class="splitter" data-split="guide"></div>
 
+  <!-- MIDDLE COLUMN: the editor and everything below it. -->
   <section id="center">
+    <!-- The bar above the editor: the file name tab plus buttons for text size,
+         copy, share (makes a link containing your code), download and reset. -->
     <div class="editor-bar">
       <div class="filetab"><span class="langdot" id="fileDot"></span><span id="fileName">main</span></div>
       <div class="spacer"></div>
@@ -102,41 +189,67 @@
       <button class="btn sm ghost" id="dlBtn" title="Download as a file">Download</button>
       <button class="btn sm ghost" id="resetBtn" title="Reset to the starter example">Reset</button>
     </div>
+    <!-- Empty box where JavaScript builds the CodeMirror code editor. -->
     <div id="editorWrap"></div>
+    <!-- Drag handle between the editor and the terminal (drag up or down). -->
     <div class="splitter h" data-split="term"></div>
+    <!-- THE TERMINAL PANEL. A "terminal" is a text window that shows what a
+         program prints (its output) and its error messages. -->
     <div id="termPanel">
       <div class="pane-head">
+        <!-- Two tabs: Terminal (text output) and Preview (only used by HTML & CSS,
+             where your web page is drawn instead of printed). -->
         <div class="tabs" id="outTabs">
           <button class="tab on" data-out="term">Terminal</button>
           <button class="tab" data-out="preview" hidden>Preview</button>
         </div>
+        <!-- Small badge that says Ready, Running..., Finished or Error. -->
         <span class="status" id="runStatus">Ready</span>
         <div class="spacer"></div>
+        <!-- Checkbox: when ticked, old output is wiped each time you press Run. -->
         <label title="Clear the terminal each time you run" style="font-size:12px;color:var(--muted);display:flex;gap:4px;align-items:center"><input type="checkbox" id="clearOnRun" checked> <span class="opt-text">clear on run</span></label>
         <button class="btn sm ghost" id="termClear">Clear</button>
         <button class="btn sm ghost" id="termHide" title="Hide terminal">✕ Hide</button>
       </div>
+      <!-- Where printed output and error boxes appear. tabindex="0" lets keyboard
+           users move to this box with the Tab key. -->
       <div class="term-body" id="termBody" tabindex="0"></div>
+      <!-- An <iframe> is a page inside a page. HTML & CSS code is shown here.
+           sandbox="..." locks it down for safety: your page's scripts can run, show
+           alerts, submit forms and open pop ups, but they CANNOT touch CodeLab
+           itself or its saved data. -->
       <iframe id="preview" title="HTML preview" sandbox="allow-scripts allow-modals allow-forms allow-popups" hidden></iframe>
+      <!-- "stdin" (standard input) is text a program reads while running, for
+           example Python's input(). Type answers here, one per line, before Run. -->
       <div class="stdin" id="stdinBox">
         <label for="stdin">Program input (stdin):</label>
         <textarea id="stdin" placeholder="Anything your program reads (input(), scanf, Scanner…) — one line per answer"></textarea>
       </div>
     </div>
+    <!-- The status bar along the bottom: cursor position (line and column),
+         the current language, where the code runs, and a shortcut reminder.
+         <kbd> marks text that represents a keyboard key. -->
     <div class="statusbar">
       <span id="sbPos">Ln 1, Col 1</span><span id="sbLang"></span><span id="sbEngine"></span>
       <span class="spacer"></span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> run · <kbd>Ctrl</kbd>+<kbd>Space</kbd> suggest</span>
     </div>
   </section>
 
+  <!-- Drag handle between the editor and the visualizer. -->
   <div class="splitter" data-split="viz"></div>
+  <!-- RIGHT COLUMN: the visualizer, which replays your program one step
+       (one line) at a time and shows your variables changing. -->
   <aside id="viz" class="pane">
     <div class="pane-head">
       <h3>Visualizer</h3><span class="pill" id="vizMode"></span>
       <div class="spacer"></div>
       <button class="btn sm ghost" id="vizClose" title="Hide visualizer">✕</button>
     </div>
+    <!-- A short explanation of how the visualizer works for this language. -->
     <div class="viz-note" id="vizNote"></div>
+    <!-- Playback controls like a video player: first step, previous step,
+         play/pause, next step, last step, plus a speed menu (<select>) and a
+         slider (<input type="range">) to jump to any step. -->
     <div class="viz-controls" id="vizControls">
       <div class="row">
         <button class="btn" id="vFirst" title="First step">⏮</button>
@@ -149,12 +262,27 @@
       </div>
       <div class="row"><input type="range" id="vSlider" min="0" max="0" value="0"><span id="vCount" style="font:12px var(--mono);color:var(--muted);min-width:64px;text-align:right">0 / 0</span></div>
     </div>
+    <!-- Where the variables, call stack and output for the current step are drawn. -->
     <div class="viz-body" id="vizBody" tabindex="0"></div>
   </aside>
 </div>
 
+<!-- A "toast" is a small message that pops up at the bottom of the screen
+     and fades away, like "Code copied". role="status" tells screen readers
+     (software that reads pages aloud for blind users) to announce it. -->
 <div id="toast" role="status"></div>
 
+<!-- =================== SCRIPTS (JavaScript files) ===================
+     <script src="..."> loads a JavaScript file. They run in the order listed,
+     so libraries the site depends on must come first.
+
+     These come from a CDN and add CodeMirror, the code editor library:
+      * codemirror.min.js: the editor itself (".min" means "minified": spaces
+        and long names removed so the file downloads faster).
+      * mode/... files: syntax highlighting (colouring) for each language.
+      * addon/... files: extras like bracket matching, auto closing brackets,
+        comment toggling, auto complete hints and colouring guide examples.
+     Each has an integrity fingerprint, explained in the <head> above. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js" integrity="sha384-ZYmwuq4n2gOcNxMSiJ6jyTj+BbIrilr7p6dlq6q5nmSWKmsH9UU4K1qqjycMkfmR" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js" integrity="sha384-g0o+WW9mdIxA7LaaCKTkRm0M5TVT+Bb4s9eocxPsI2G0Xm0POG9iD6G6qP1IIsfS" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js" integrity="sha384-Xy+2exU6lBoT4OpUOtnQb+cUpn+nlJQEHvRobWVtwz6wIsw4oNoO7xyd/l8rYgMy" crossorigin="anonymous"></script>
@@ -177,6 +305,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js" integrity="sha384-qCnKPgNYgVO8RO19jShRRAfU75+KVnN1cQy+8CPX/TTwJsUEJ/EpnwKx2UOyLx8c" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/runmode/runmode.min.js" integrity="sha384-/cmd3Km1T/tqET+aLxnD1Mm39cKeLo/PJND23EE1dPX1iF7ukaPcMvD0aX2gBS6d" crossorigin="anonymous"></script>
 
+<!-- OUR OWN JavaScript files. Order matters:
+      1. js/langs/*.js : the 13 languages' guides, starter code and tips (data).
+      2. challenges.js : the self checking exercises (data).
+      3. errors.js     : plain English explanations of error messages.
+      4. trace.js      : records and explains code line by line.
+      5. engines.js    : actually runs code for each language.
+      6. viz.js        : draws the visualizer panel.
+      7. app.js        : the "conductor" that wires everything together. It
+                         goes last because it uses everything loaded before it. -->
 <script src="js/langs/web.js"></script>
 <script src="js/langs/scripting.js"></script>
 <script src="js/langs/systems.js"></script>

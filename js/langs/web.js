@@ -1,11 +1,80 @@
+// ================================================================
+//  js/langs/web.js: content for JavaScript, HTML & CSS and SQL
+// ================================================================
+//  This file holds DATA, not behaviour: each language's starter program,
+//  syntax guide lessons, tips and settings. The other JavaScript files
+//  (app.js, engines.js...) read this data to build the screens.
+//
+//  HOW EACH LANGUAGE IS DESCRIBED. Every language is one JavaScript
+//  OBJECT (a group of named values inside { }) added to the LANGS list
+//  with LANGS.push(...). Its fields (named values) are:
+//    id        short name used in web addresses, e.g. #/python
+//    name      the name people see, e.g. "Python"
+//    tag       2 to 4 letters shown on the language's card badge
+//    color     the language's colour (a hex code like #3776ab)
+//    file      file name shown above the editor and used for downloads
+//    cmd       the pretend command printed in the terminal on Run
+//    kind      'browser' (runs instantly on your computer) or 'cloud'
+//              (sent to the Wandbox online compiler)
+//    engine    which engine in engines.js runs it: 'js', 'py', 'lua',
+//              'sql', 'html' or 'wandbox'
+//    trace     which visualizer mode it uses: 'trace', 'sql', 'dom' or
+//              'explain'
+//    mode      which CodeMirror colouring rules to use in the editor
+//    snippetMode  (optional) different colouring rules for guide examples
+//    indent    how many spaces one indent is; tabs: use tab characters
+//    comment   this language's comment symbols, used when building
+//              challenge templates
+//    scaffold  the template a challenge starts from; {{COMMENT}} is
+//              replaced by the challenge description
+//    wrap      (optional) the code needed around short examples so they
+//              can run, e.g. a main() function; {{CODE}} marks where the
+//              example goes and wrapIndent is how much to indent it
+//    wb        (cloud languages) Wandbox settings: which language to ask
+//              for, preferred compiler, extra compiler options ("flags"),
+//              "slow" builds, and an optional code "transform"
+//    noStdin   true if the "Program input" box isn't used
+//    chal      which challenge list to use (default: the common list)
+//    blurb     one sentence for the home page card
+//    intro     the paragraph at the top of the syntax guide
+//    docs      a link to the official documentation
+//    keywords  words suggested by auto complete
+//    starter   the example program shown the first time you open it
+//    sections  the syntax guide lessons. Each lesson has: id, title,
+//              level (beginner / intermediate / advanced), body (the
+//              explanation; `backticks` show code and **double stars**
+//              make bold), code (the example), optional full: true (the
+//              example is already a complete program and needs no wrap)
+//              and optional deep (the "Going deeper" note).
+//    tips      the "Best practices" list
+//    pitfalls  the "Common beginner mistakes" list
 /* JavaScript, HTML & CSS, SQL */
+// window.LANGS is the shared list of languages that every language file
+// adds to. "|| []" means: if no earlier file has created the list yet,
+// start an empty one. (window is the browser's shared "global" object.)
 window.LANGS = window.LANGS || [];
+// IIFE wrapper: a function that runs immediately, keeping helper names
+// like R private to this file (see app.js for more on this).
 (function () {
+  // R is a shortcut for String.raw. Code examples are written between
+  // backticks ` ` (a "template literal", JavaScript text that can span
+  // many lines). String.raw keeps every backslash exactly as typed, so
+  // code like printf("\n") stays correct instead of \n turning into a
+  // real line break. No // comments can go INSIDE these examples, because
+  // they would become part of the example code itself.
   const R = String.raw;
+  // J is like R but for JavaScript examples, which can themselves contain
+  // backticks and ${...}. Inside these examples, the symbol pair §§ stands
+  // for a backtick and §{ stands for ${ ; J swaps them back when the file
+  // loads. Without this trick the example's backticks would end the outer
+  // text early.
   // In JS samples, §§ stands for a backtick and §{ for "${" (so they survive this template literal).
   const J = (s) => String.raw(s).replace(/§§/g, '`').replace(/§\{/g, '${');
 
   /* ===================================================================== JavaScript */
+  // JAVASCRIPT
+  // Runs inside your browser in a Web Worker (a background helper) and
+  // supports the live line by line trace in the visualizer.
   LANGS.push({
     id: 'javascript', name: 'JavaScript', tag: 'JS', color: '#e6b800', file: 'main.js', cmd: 'node main.js',
     kind: 'browser', engine: 'js', trace: 'trace', mode: 'javascript', indent: 2, comment: ['//'],
@@ -14,6 +83,7 @@ window.LANGS = window.LANGS || [];
     intro: 'JavaScript runs in every web browser and, via Node.js, on servers. It is dynamically typed, multi-paradigm (functional + object-oriented) and event-driven. Code here runs in an isolated sandbox in your browser.',
     docs: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript',
     keywords: ['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'class', 'extends', 'constructor', 'new', 'this', 'super', 'try', 'catch', 'finally', 'throw', 'async', 'await', 'true', 'false', 'null', 'undefined', 'typeof', 'instanceof', 'console', 'log', 'length', 'push', 'pop', 'map', 'filter', 'reduce', 'forEach', 'includes', 'Math', 'JSON', 'Promise', 'Object', 'Array', 'String', 'Number', 'setTimeout', 'toUpperCase', 'toLowerCase', 'split', 'join', 'slice'],
+    // The starter program shown the first time you open JavaScript.
     starter: J`// Welcome to JavaScript! Press ▶ Run (or Ctrl+Enter).
 // Tip: open the 👁 Visualizer to watch every line execute.
 
@@ -37,6 +107,7 @@ console.log("Fibonacci:", numbers);
 console.log(§§The sum is §{total}§§);
 console.log(person);
 `,
+    // JavaScript syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & the console', level: 'beginner',
         body: "`console.log()` prints values to the terminal. Statements usually end with a semicolon `;`. JavaScript is **case-sensitive**: `Console.log` would fail.\n\nComments start with `//` for one line, or sit between `/*` and `*/` for several lines. The computer ignores them — they are notes for humans.",
@@ -268,6 +339,7 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
   .then(values => console.log("All done:", values));`,
         deep: "JavaScript is single-threaded with an **event loop**: synchronous code runs to completion, then microtasks (promise callbacks) run, then macrotasks (timers, I/O). `Promise.all` fails fast on the first rejection; `Promise.allSettled` waits for all. Always handle rejections with `try/catch` around `await` or `.catch()`." }
     ],
+    // JavaScript best practices (the "Best practices" tab).
     tips: [
       'Use `const` by default, `let` only when the variable must be reassigned, and never `var`.',
       'Always compare with `===` and `!==`; `==` performs surprising type conversions.',
@@ -278,6 +350,7 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
       'Always handle promise rejections (`try/catch` around `await`, or `.catch()`). Never leave an empty `catch` block.',
       'Use a linter (ESLint) and formatter (Prettier) in real projects, and write modules with `import`/`export` instead of globals.'
     ],
+    // Common JavaScript beginner mistakes.
     pitfalls: [
       'Using `=` (assignment) when you meant `===` (comparison) inside an `if`.',
       'Calling `sort()` on numbers without a comparator: `[10, 2, 1].sort()` gives `[1, 10, 2]`.',
@@ -288,6 +361,10 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
   });
 
   /* ===================================================================== HTML & CSS */
+  // HTML & CSS
+  // Shown in the Preview frame instead of printing text. The visualizer
+  // shows the page's element tree. Uses its own challenge list ('html')
+  // and has no Program input box.
   LANGS.push({
     id: 'html', name: 'HTML & CSS', aka: 'web page website css', tag: '</>', color: '#e34f26', file: 'index.html', cmd: 'open index.html',
     kind: 'browser', engine: 'html', trace: 'dom', mode: 'htmlmixed', indent: 2, comment: ['<!--', '-->'], noStdin: true, chal: 'html',
@@ -296,6 +373,7 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
     intro: '**HTML** (HyperText Markup Language) describes the *structure and meaning* of a page with tags like `<h1>` and `<p>`. **CSS** (Cascading Style Sheets) controls how it *looks*. Press Run and your page appears in the **Preview** tab; `console.log` from scripts shows in the Terminal tab.',
     docs: 'https://developer.mozilla.org/en-US/docs/Learn',
     keywords: ['div', 'span', 'section', 'header', 'footer', 'main', 'article', 'button', 'input', 'label', 'form', 'class', 'style', 'script', 'href', 'src', 'alt', 'display', 'flex', 'grid', 'color', 'background', 'margin', 'padding', 'border', 'width', 'height', 'font-size', 'font-family', 'justify-content', 'align-items', 'gap'],
+    // The starter program shown the first time you open HTML & CSS.
     starter: R`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -348,6 +426,7 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
 </body>
 </html>
 `,
+    // HTML & CSS syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'structure', title: 'Page structure, tags & attributes', level: 'beginner',
         body: "HTML is made of **elements** written as tags: `<p>` opens a paragraph and `</p>` closes it. Elements nest inside each other like boxes.\n\nEvery page has the same skeleton: `<!DOCTYPE html>`, then `<html>` containing `<head>` (information about the page) and `<body>` (what visitors see). **Attributes** add extra information inside the opening tag: `<html lang=\"en\">`.",
@@ -545,6 +624,7 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
 </div>`,
         deep: "Design mobile-first: write the small-screen styles as the default and add `min-width` media queries for larger screens. Prefer intrinsic layouts (`minmax`, `clamp()`, `flex-wrap`) that adapt without breakpoints. `prefers-color-scheme` and `prefers-reduced-motion` respect user settings." }
     ],
+    // HTML & CSS best practices (the "Best practices" tab).
     tips: [
       'Use semantic elements (`header`, `nav`, `main`, `button`) — they give accessibility for free.',
       'Every `<img>` needs `alt` text; every form field needs a `<label>`.',
@@ -555,6 +635,7 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
       'Check colour contrast and test with the keyboard only (Tab / Enter) — can you use the page?',
       'Validate your HTML (validator.w3.org) and indent nested elements consistently.'
     ],
+    // Common HTML & CSS beginner mistakes.
     pitfalls: [
       'Forgetting to close a tag, which makes the rest of the page nest inside it.',
       'Using an `id` more than once — ids must be unique on a page.',
@@ -565,6 +646,10 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
   });
 
   /* ===================================================================== SQL */
+  // SQL
+  // Runs on a real SQLite database inside your browser (sql.js). The
+  // visualizer shows every table after each statement. Uses its own
+  // challenge list ('sql').
   LANGS.push({
     id: 'sql', name: 'SQL', aka: 'sqlite database query', tag: 'SQL', color: '#336791', file: 'query.sql', cmd: 'sqlite3 < query.sql',
     kind: 'browser', engine: 'sql', trace: 'sql', mode: 'text/x-sqlite', indent: 2, comment: ['--'], noStdin: true, chal: 'sql',
@@ -573,6 +658,7 @@ Promise.all([wait(100).then(() => "a"), wait(50).then(() => "b")])
     intro: 'SQL (Structured Query Language) is used to create, change and query relational databases: data stored in **tables** of rows and columns. This page runs a real **SQLite** database in your browser; it starts empty on every run, so each example creates its own tables. Turn on the Visualizer to see every table change statement by statement.',
     docs: 'https://www.sqlite.org/lang.html',
     keywords: ['SELECT', 'FROM', 'WHERE', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'CREATE', 'TABLE', 'DROP', 'ALTER', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'NOT', 'NULL', 'INTEGER', 'TEXT', 'REAL', 'ORDER', 'BY', 'GROUP', 'HAVING', 'JOIN', 'LEFT', 'INNER', 'ON', 'AS', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'LIMIT', 'LIKE', 'BETWEEN', 'UNIQUE', 'DEFAULT', 'WITH'],
+    // The starter program shown the first time you open SQL.
     starter: R`-- Welcome to SQL (SQLite)! Each statement ends with a semicolon.
 -- Turn on the 👁 Visualizer to watch the tables change, statement by statement.
 
@@ -598,6 +684,7 @@ UPDATE students SET grade = grade + 5 WHERE name = 'Alan';
 SELECT COUNT(*) AS students, ROUND(AVG(grade), 1) AS average
 FROM students;
 `,
+    // SQL syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'select', title: 'SELECT: reading data', level: 'beginner',
         body: "`SELECT` chooses columns, `FROM` names the table. `*` means \"all columns\". You can compute new columns and rename them with `AS`.\n\nSQL keywords are case-insensitive, but writing them in CAPITALS makes queries easier to read. Statements end with `;`.",
@@ -741,6 +828,7 @@ SELECT * FROM accounts;
 SELECT * FROM rich;`,
         deep: "Transactions provide ACID guarantees (Atomicity, Consistency, Isolation, Durability). Indexes speed up reads but slow down writes and use space — index columns used in `WHERE`, `JOIN` and `ORDER BY`. Use `EXPLAIN QUERY PLAN` to see whether an index is used. In application code always use **parameterised queries** to prevent SQL injection." }
     ],
+    // SQL best practices (the "Best practices" tab).
     tips: [
       'Write SQL keywords in UPPERCASE and table/column names in lowercase `snake_case`; put each clause (SELECT, FROM, WHERE…) on its own line.',
       'Name the columns you need instead of `SELECT *` in real applications.',
@@ -751,6 +839,7 @@ SELECT * FROM rich;`,
       'Index columns used for joins and filters, and check with `EXPLAIN QUERY PLAN`.',
       'Store each fact once (normalise), and use `DATE`/ISO-8601 text for dates.'
     ],
+    // Common SQL beginner mistakes.
     pitfalls: [
       'Using double quotes for text. In SQL, `\'text\'` is a string and `"name"` is an identifier.',
       'Comparing with `= NULL` instead of `IS NULL`.',

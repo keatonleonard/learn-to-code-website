@@ -1,11 +1,37 @@
+// ================================================================
+//  js/langs/systems.js: content for C, C++, Rust and Go
+// ================================================================
+//  This file holds DATA, not behaviour: each language's starter program,
+//  syntax guide lessons, tips and settings. The other JavaScript files
+//  (app.js, engines.js...) read this data to build the screens.
+//
+//  Every language object has the same fields; js/langs/web.js explains
+//  each field in detail at the top of that file.
+// ================================================================
 /* C, C++, Rust, Go */
+// window.LANGS is the shared list of languages that every language file
+// adds to. "|| []" means: if no earlier file has created the list yet,
+// start an empty one. (window is the browser's shared "global" object.)
 window.LANGS = window.LANGS || [];
+// IIFE wrapper: a function that runs immediately, keeping helper names
+// like R private to this file (see app.js for more on this).
 (function () {
+  // R is a shortcut for String.raw. Code examples are written between
+  // backticks ` ` (a "template literal", JavaScript text that can span
+  // many lines). String.raw keeps every backslash exactly as typed, so
+  // code like printf("\n") stays correct instead of \n turning into a
+  // real line break. No // comments can go INSIDE these examples, because
+  // they would become part of the example code itself.
   const R = String.raw;
   // Go code is written with 4-space indents here and converted to gofmt-style tabs.
+  // G is like R, but for Go examples: it also converts every 4 spaces at the
+  // start of a line into one tab character, Go's standard formatting.
   const G = (s) => String.raw(s).replace(/^(?: {4})+/gm, (m) => '\t'.repeat(m.length / 4));
 
   /* ===================================================================== C */
+  // C
+  // Compiled by GCC on Wandbox with -Wall (show all common warnings).
+  // "wrap" puts short examples inside main() with the usual #include lines.
   LANGS.push({
     id: 'c', name: 'C', tag: 'C', color: '#5c6bc0', file: 'main.c', cmd: 'gcc main.c -o main && ./main',
     kind: 'cloud', engine: 'wandbox', wb: { lang: 'C', prefer: /^gcc/, flags: '-Wall' }, trace: 'explain', mode: 'text/x-csrc', indent: 4, comment: ['//'],
@@ -15,6 +41,7 @@ window.LANGS = window.LANGS || [];
     intro: 'C (1972) is small, fast and close to the hardware. It powers operating systems, databases, microcontrollers and the runtimes of other languages. You manage memory yourself with pointers, which is powerful and demanding. Code is compiled with GCC (`-Wall` warnings on) on the Wandbox service.',
     docs: 'https://en.cppreference.com/w/c',
     keywords: ['int', 'char', 'float', 'double', 'long', 'short', 'unsigned', 'void', 'bool', 'const', 'static', 'struct', 'typedef', 'enum', 'sizeof', 'return', 'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'default', 'printf', 'scanf', 'fprintf', 'stderr', 'malloc', 'free', 'realloc', 'strlen', 'strcpy', 'strcmp', 'strcat', 'NULL', 'include', 'define', 'main'],
+    // The starter program shown the first time you open C.
     starter: R`// Welcome to C! Press ▶ Run (or Ctrl+Enter).
 // C is compiled on the free Wandbox service (needs internet).
 #include <stdio.h>
@@ -38,6 +65,7 @@ int main(void) {
     return 0;
 }
 `,
+    // C syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Program structure & Hello, World', level: 'beginner', full: true,
         body: "`#include <stdio.h>` brings in the standard input/output library so you can use `printf`. Every C program starts running in the function `main`. Statements end with `;` and blocks are wrapped in `{ }`.\n\n`\\n` inside a string means \"new line\". `return 0;` tells the operating system the program succeeded.",
@@ -297,6 +325,7 @@ int main(void) {
 }`,
         deep: "Macros are plain text replacement with no type checking; `SQUARE(i++)` increments twice. Prefer `const` variables, `enum`s and `static inline` functions where possible. Header files use include guards (`#ifndef FOO_H / #define FOO_H / #endif`) to avoid double inclusion." }
     ],
+    // C best practices (the "Best practices" tab).
     tips: [
       'Compile with warnings enabled (`-Wall -Wextra`) and fix every warning.',
       'Initialise every variable when you declare it.',
@@ -307,6 +336,7 @@ int main(void) {
       'Keep functions short, name them clearly in `snake_case`, and use `static` for file-private helpers.',
       'Use tools like AddressSanitizer and Valgrind to catch memory errors early.'
     ],
+    // Common C beginner mistakes.
     pitfalls: [
       'Forgetting the `;` at the end of a statement or after a `struct` definition.',
       'Integer division: `5 / 2` is `2`, not `2.5`.',
@@ -317,6 +347,9 @@ int main(void) {
   });
 
   /* ===================================================================== C++ */
+  // C++
+  // Compiled by GCC on Wandbox using the C++20 standard. "wrap" adds the
+  // usual #include lines and a main() function.
   LANGS.push({
     id: 'cpp', name: 'C++', aka: 'cpp cplusplus', tag: 'C++', color: '#00599c', file: 'main.cpp', cmd: 'g++ -std=c++20 main.cpp -o main && ./main',
     kind: 'cloud', engine: 'wandbox', wb: { lang: 'C++', prefer: /^gcc/, flags: '-std=c++20 -Wall' }, trace: 'explain', mode: 'text/x-c++src', indent: 4, comment: ['//'],
@@ -326,6 +359,7 @@ int main(void) {
     intro: 'C++ builds on C with classes, templates, a rich standard library (strings, vectors, maps, algorithms) and automatic resource management (RAII). Modern C++ (C++11 and later) is much safer and nicer than the old style. Code is compiled with GCC in C++20 mode on the Wandbox service.',
     docs: 'https://en.cppreference.com/w/cpp',
     keywords: ['int', 'double', 'char', 'bool', 'auto', 'void', 'const', 'constexpr', 'static', 'class', 'struct', 'public', 'private', 'protected', 'virtual', 'override', 'template', 'typename', 'namespace', 'return', 'if', 'else', 'for', 'while', 'switch', 'case', 'break', 'new', 'delete', 'nullptr', 'true', 'false', 'std', 'cout', 'cin', 'endl', 'string', 'vector', 'map', 'push_back', 'size', 'begin', 'end', 'sort', 'unique_ptr', 'make_unique', 'shared_ptr', 'include'],
+    // The starter program shown the first time you open C++.
     starter: R`// Welcome to C++! Press ▶ Run (or Ctrl+Enter).
 // C++ is compiled on the free Wandbox service (needs internet).
 #include <iostream>
@@ -353,6 +387,7 @@ int main() {
     return 0;
 }
 `,
+    // C++ syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & iostream', level: 'beginner', full: true,
         body: "`#include <iostream>` gives access to `std::cout` (console output). The `<<` operator sends values to the stream. Everything in the standard library lives in the `std` **namespace**, hence the `std::` prefix.\n\nExecution starts in `main`.",
@@ -634,6 +669,7 @@ static_assert(squared == 144);
 std::cout << squared << '\n';`,
         deep: "Other modern essentials: `std::variant` (type-safe unions), `std::span` (non-owning array views), `std::format` (Python-style formatting, C++20), move semantics (`std::move`) and range-based algorithms." }
     ],
+    // C++ best practices (the "Best practices" tab).
     tips: [
       'Prefer `std::vector`, `std::string` and smart pointers over raw arrays, C strings and `new`/`delete`.',
       'Use RAII: tie every resource (memory, files, locks) to an object whose destructor releases it.',
@@ -644,6 +680,7 @@ std::cout << squared << '\n';`,
       'Compile with `-Wall -Wextra` and, while developing, sanitizers (`-fsanitize=address,undefined`).',
       'Follow the C++ Core Guidelines (isocpp.github.io/CppCoreGuidelines).'
     ],
+    // Common C++ beginner mistakes.
     pitfalls: [
       'Forgetting `std::` (or the right `#include`) and getting "not declared in this scope".',
       'Integer division: `5 / 2` is `2`.',
@@ -654,6 +691,8 @@ std::cout << squared << '\n';`,
   });
 
   /* ===================================================================== Rust */
+  // RUST
+  // Compiled on Wandbox. "wrap" puts short examples inside fn main().
   LANGS.push({
     id: 'rust', name: 'Rust', aka: 'rs', tag: 'Rs', color: '#ce422b', file: 'main.rs', cmd: 'rustc main.rs && ./main',
     kind: 'cloud', engine: 'wandbox', wb: { lang: 'Rust' }, trace: 'explain', mode: 'rust', indent: 4, comment: ['//'],
@@ -663,6 +702,7 @@ std::cout << squared << '\n';`,
     intro: 'Rust gives C-level speed with guaranteed memory safety, enforced at compile time by its **ownership** and **borrowing** rules. The compiler is strict but its error messages are famously helpful — read them carefully! Code is compiled with rustc on the Wandbox service.',
     docs: 'https://doc.rust-lang.org/book/',
     keywords: ['fn', 'let', 'mut', 'const', 'static', 'if', 'else', 'match', 'loop', 'while', 'for', 'in', 'break', 'continue', 'return', 'struct', 'enum', 'impl', 'trait', 'pub', 'use', 'mod', 'self', 'Self', 'where', 'as', 'ref', 'move', 'true', 'false', 'Some', 'None', 'Ok', 'Err', 'Option', 'Result', 'String', 'Vec', 'HashMap', 'println', 'format', 'vec', 'unwrap', 'expect', 'iter', 'map', 'collect', 'clone', 'len', 'push'],
+    // The starter program shown the first time you open Rust.
     starter: R`// Welcome to Rust! Press ▶ Run (or Ctrl+Enter).
 // Rust is compiled on the free Wandbox service (needs internet).
 
@@ -694,6 +734,7 @@ fn main() {
     println!("Total area: {total}, largest: {largest:?}");
 }
 `,
+    // Rust syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & println!', level: 'beginner', full: true,
         body: "Programs start in `fn main()`. `println!` (the `!` means it's a **macro**) prints a line; `{}` placeholders are filled with values, and you can name variables directly inside: `{name}`. `{:?}` prints the debug representation.",
@@ -1031,6 +1072,7 @@ println!("{small:?} {big:?}");
 println!("{:?}", nums.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>());`,
         deep: "`iter()` yields `&T`, `iter_mut()` yields `&mut T` and `into_iter()` yields `T` (consuming the collection). Nothing happens until a consumer like `collect`, `sum` or `for` drives the iterator." }
     ],
+    // Rust best practices (the "Best practices" tab).
     tips: [
       'Read compiler errors top to bottom — they usually tell you exactly how to fix the problem.',
       'Run `cargo fmt` and `cargo clippy` on real projects; Clippy teaches idiomatic Rust.',
@@ -1041,6 +1083,7 @@ println!("{:?}", nums.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>());`,
       'Keep variables immutable unless they truly need `mut`.',
       'Name things `snake_case` for functions/variables, `PascalCase` for types and traits, `SCREAMING_CASE` for constants.'
     ],
+    // Common Rust beginner mistakes.
     pitfalls: [
       'Using a value after it has been moved — borrow with `&` or `.clone()` it.',
       'Forgetting `mut` and getting "cannot assign twice to immutable variable".',
@@ -1051,6 +1094,11 @@ println!("{:?}", nums.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>());`,
   });
 
   /* ===================================================================== Go */
+  // GO
+  // Compiled on Wandbox ("slow": Go builds there can take up to a minute).
+  // Go code uses tab characters for indentation, so its examples are
+  // written with spaces here and G converts them to tabs. "wrap" adds
+  // package main, import "fmt" and func main().
   LANGS.push({
     id: 'go', name: 'Go', aka: 'golang', tag: 'Go', color: '#00add8', file: 'main.go', cmd: 'go run main.go',
     kind: 'cloud', engine: 'wandbox', wb: { lang: 'Go', slow: true }, trace: 'explain', mode: 'text/x-go', indent: 4, tabs: true, comment: ['//'],
@@ -1060,6 +1108,7 @@ println!("{:?}", nums.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>());`,
     intro: 'Go (Golang) was designed at Google for simplicity: a small language, fast compilation, a single binary, and first-class concurrency with **goroutines** and **channels**. It deliberately leaves out features like inheritance. Go is strict: unused variables and imports are compile errors. Code is compiled on the Wandbox service.',
     docs: 'https://go.dev/doc/',
     keywords: ['package', 'import', 'func', 'var', 'const', 'type', 'struct', 'interface', 'map', 'chan', 'go', 'defer', 'return', 'if', 'else', 'for', 'range', 'switch', 'case', 'default', 'break', 'continue', 'select', 'nil', 'true', 'false', 'string', 'int', 'float64', 'bool', 'error', 'fmt', 'Println', 'Printf', 'Sprintf', 'make', 'append', 'len', 'cap', 'errors', 'strings', 'main'],
+    // The starter program shown the first time you open Go.
     starter: G`// Welcome to Go! Press ▶ Run (or Ctrl+Enter).
 // Go is compiled on the free Wandbox service (needs internet).
 package main
@@ -1095,6 +1144,7 @@ func main() {
     fmt.Printf("%d done, %d pending\n", d, p)
 }
 `,
+    // Go syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & packages', level: 'beginner', full: true,
         body: "Every Go file starts with `package`. Executable programs use `package main` with a `func main()`. `import` brings in packages such as `fmt` (formatting and printing).\n\nGo uses braces but no semicolons; the opening `{` **must** be on the same line.",
@@ -1476,6 +1526,7 @@ func main() {
 }`,
         deep: "Use generics for data structures and algorithms that are truly type-agnostic; plain interfaces remain the idiomatic choice for behaviour. The standard `slices` and `maps` packages are built with generics." }
     ],
+    // Go best practices (the "Best practices" tab).
     tips: [
       'Run `gofmt` (or `go fmt`) — all Go code uses the same formatting with tabs.',
       'Handle errors immediately with `if err != nil { return ... }`; add context with `fmt.Errorf("doing X: %w", err)`.',
@@ -1486,6 +1537,7 @@ func main() {
       'Don\'t start goroutines without knowing how they will stop; use `context` for cancellation.',
       'Use `go vet`, `staticcheck` and `go test -race` regularly.'
     ],
+    // Common Go beginner mistakes.
     pitfalls: [
       'Declaring a variable or importing a package and not using it — that\'s a compile error.',
       'Putting the opening `{` on a new line (Go inserts a semicolon and fails).',

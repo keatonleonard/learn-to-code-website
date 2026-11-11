@@ -1,29 +1,95 @@
+// ================================================================
+//  app.js: the "conductor" of CodeLab
+// ================================================================
+//  This file wires everything together: it decides which screen to
+//  show, builds the code editor, writes to the terminal, draws the
+//  guide, checks challenges and saves your work. The heavy lifting of
+//  actually RUNNING code lives in engines.js; this file asks it to.
+//
+//  KEY WORDS (JavaScript basics used throughout this file):
+//  * Variable: a named box that holds a value. "const" makes a box that
+//    can't be given a new value later; "let" makes one that can.
+//  * Function: a named, reusable set of instructions. You "call" it with
+//    its name and parentheses, like toast('Hi'). Values passed in are
+//    "arguments"; the function's names for them are "parameters".
+//  * Arrow function: a short way to write a function: (x) => x * 2
+//  * String: text, written in quotes: 'hello'.
+//  * Boolean: true or false.
+//  * Object: a group of named values in { }, like { name: 'Ada', age: 36 }.
+//    Read a value with a dot: person.name
+//  * Array: an ordered list in [ ], like [1, 2, 3]. Positions start at 0.
+//  * DOM (Document Object Model): the browser's live version of the HTML
+//    page, which JavaScript can read and change.
+//  * Element: one piece of the page (a button, a panel...).
+//  * Event: something that happens, like a click or a key press. An
+//    "event listener" (or "handler") is a function that runs when it does.
+//  * localStorage: a small storage area in the browser that keeps data
+//    even after the page is closed. Used here to save your code and settings.
+//  * JSON: a text format for saving objects and arrays as plain text.
+// ================================================================
 /* CodeLab application shell: routing, editor, terminal, guide, challenges. */
+// The whole file is wrapped in "(function () { ... })();". This is an
+// IIFE (Immediately Invoked Function Expression): a function that runs
+// straight away. It keeps all the names in this file private, so they
+// can't clash with names in other files.
 (function () {
+  // "use strict" turns on JavaScript's strict mode, which reports some
+  // common mistakes as errors instead of silently ignoring them.
   'use strict';
+  // SMALL HELPER FUNCTIONS used everywhere in this file.
+  // $('runBtn') finds the page element whose id is "runBtn".
   const $ = (id) => document.getElementById(id);
+  // esc() "escapes" text before it is put into the page as HTML: it turns
+  // characters like < and > into harmless codes (&lt; &gt;) so text from a
+  // user or a program is shown as text and can never become real HTML or
+  // code. This is an important security protection.
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // clamp(v, a, b) keeps a number v between a minimum a and a maximum b.
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  // The list of all 13 languages, built by the files in js/langs/.
+  // "window" is the browser's global object: things attached to it can be
+  // shared between files.
   const LANGS = window.LANGS;
 
+  // STORE: reading and writing localStorage.
+  // Every key gets the prefix "codelab." so it can't clash with other sites.
+  // Values are converted to JSON text when saved and back when read.
+  // "try { } catch { }" means: try this; if it fails (for example, the
+  // browser blocks storage in a private window), quietly use the default
+  // value "d" instead of crashing.
   const store = {
     get(k, d) { try { const v = localStorage.getItem('codelab.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem('codelab.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } }
   };
 
+  // S holds the app's STATE: everything the app needs to remember while it
+  // runs. For example: which language is open, whether code is running, the
+  // terminal's text so far, and S.ui, the layout settings. S.ui starts from
+  // default values and is then overwritten by any settings saved earlier
+  // ("Object.assign" copies the saved values over the defaults).
   const S = {
     lang: null, cm: null, running: false, out: '', stdout: '', marks: [], execH: null, guideTab: 'syntax', level: 'all', query: '', chalFilter: null,
     ui: Object.assign({ guide: true, term: true, viz: false, fs: 14, theme: 'dark', termH: 240, guideW: 400, vizW: 380 }, store.get('ui', {}))
   };
+  // Saves the current layout settings (S.ui) to localStorage.
   const saveUI = () => store.set('ui', S.ui);
 
   /* ---------------------------------------------------------------- utils */
+  // toast(): shows a short message at the bottom of the screen for a few
+  // seconds. setTimeout(fn, ms) runs fn once after ms milliseconds
+  // (1000 ms = 1 second); clearTimeout cancels the previous one so a new
+  // message doesn't vanish early.
   let toastT;
   function toast(msg, ms) {
     const t = $('toast');
     t.innerHTML = msg; t.classList.add('show');
     clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms || 2600);
   }
+  // inline() and md() turn the simple text format used in the guide into
+  // HTML: `code` becomes code style, **bold** becomes bold, *text* becomes
+  // italic, blank lines start new paragraphs and lines starting with "- "
+  // become bullet lists. The /.../ patterns are REGULAR EXPRESSIONS (regex):
+  // a mini language for finding text patterns.
   function inline(s) {
     return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
       .replace(/(^|[\s(])\*([^*\s](?:[^*<]*?[^*\s])?)\*(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>');
@@ -35,8 +101,16 @@
       return '<p>' + inline(p) + '</p>';
     }).join('');
   }
+  // b64e() and b64d() encode and decode code for share links. Base64 turns
+  // any text into safe characters (letters, numbers, - and _) that can sit
+  // inside a web address. TextEncoder/TextDecoder handle non English
+  // characters correctly.
   function b64e(s) { const b = new TextEncoder().encode(s); let bin = ''; b.forEach((x) => { bin += String.fromCharCode(x); }); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
   function b64d(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const bin = atob(s); return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))); }
+  // copyText() copies text to the clipboard. "async" marks a function that
+  // can wait for slow tasks with "await". If the modern clipboard feature is
+  // blocked, it falls back to an older trick: put the text in a hidden text
+  // box, select it, and run the browser's copy command.
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; }
     catch (e) {
@@ -45,17 +119,31 @@
       ta.remove(); return ok;
     }
   }
+  // langById('python') finds the language object whose id is 'python'.
   const langById = (id) => LANGS.find((l) => l.id === id);
+  // runnable() makes a guide example ready to run. Some languages (like
+  // Java or C) need extra surrounding code before anything can run, such as
+  // a "main" function. The language's "wrap" template supplies that, and
+  // the example is indented and dropped in where {{CODE}} appears.
   function runnable(lang, sec) {
     if (sec.full || !lang.wrap) return sec.code;
     const body = sec.code.split('\n').map((l) => (l.trim() ? lang.wrapIndent + l : '')).join('\n');
     return lang.wrap.replace('{{CODE}}', body);
   }
+  // Read the lists of finished guide sections and solved challenges for a
+  // language from localStorage ([] means "an empty list" if nothing is saved).
   const progress = (id) => store.get('prog.' + id, []);
   const chalDone = (id) => store.get('chal.' + id, []);
 
   /* ---------------------------------------------------------------- theme & layout */
+  // applyTheme() sets data-theme="dark" or "light" on the page; style.css
+  // then picks the matching colours.
   function applyTheme() { document.documentElement.dataset.theme = S.ui.theme; }
+  // applyLayout() makes the screen match the settings in S.ui: shows or
+  // hides the guide, terminal and visualizer, highlights their toggle
+  // buttons, sets panel sizes and the font size, then saves the settings.
+  // S.cm.refresh() tells the code editor to re-measure itself after its
+  // box changes size.
   function applyLayout() {
     const ide = $('ide');
     $('guide').hidden = !S.ui.guide; document.querySelector('[data-split=guide]').hidden = !S.ui.guide;
@@ -74,6 +162,13 @@
     if (S.cm) setTimeout(() => S.cm.refresh(), 0);
     saveUI();
   }
+  // initSplitters() makes the thin bars between panels draggable.
+  // When the mouse button goes down on a bar ("mousedown"), the code
+  // remembers the starting position and sizes. While the mouse moves
+  // ("mousemove") it resizes the panels by how far the mouse travelled
+  // (kept within limits by clamp). When the button is released ("mouseup")
+  // it stops listening and saves the new sizes. While dragging, the HTML
+  // preview frame ignores the mouse so it can't "steal" the drag.
   function initSplitters() {
     document.querySelectorAll('.splitter').forEach((sp) => {
       sp.addEventListener('mousedown', (e) => {
@@ -94,7 +189,15 @@
   }
 
   /* ---------------------------------------------------------------- home */
+  // HOME SCREEN
+  // homeFilter remembers which filter chip is selected (all / browser / cloud).
   let homeFilter = 'all';
+  // renderHome() builds the grid of language cards. For each language that
+  // matches the search box and filter it creates the card's HTML as text:
+  // badge, name, pills, description and a progress bar. .filter() keeps
+  // only matching items, .map() turns each item into a card, and .join('')
+  // glues them together. It also sets up the "Resume" button for the last
+  // language you used.
   function renderHome() {
     const q = $('langSearch').value.trim().toLowerCase();
     $('langGrid').innerHTML = LANGS.filter((l) => (homeFilter === 'all' || l.kind === homeFilter) && (!q || (l.name + ' ' + l.blurb + ' ' + (l.aka || '')).toLowerCase().includes(q))).map((l) => {
@@ -112,6 +215,14 @@
   }
 
   /* ---------------------------------------------------------------- editor */
+  // CODE EDITOR
+  // initEditor() creates the CodeMirror editor (a ready made code editor
+  // library loaded in index.html) inside #editorWrap, with line numbers,
+  // bracket matching, auto closing brackets and a highlighted current line.
+  // "gutters" are the narrow columns left of the code: line numbers, the
+  // visualizer's arrow ("exec") and error markers ("marks").
+  // extraKeys sets keyboard shortcuts: Ctrl+Enter runs, Ctrl+/ comments out
+  // lines, Ctrl+Space suggests words, and Tab inserts spaces.
   function initEditor() {
     S.cm = CodeMirror($('editorWrap'), {
       lineNumbers: true, theme: 'learn', indentUnit: 4, tabSize: 4, matchBrackets: true, autoCloseBrackets: true, styleActiveLine: true,
@@ -124,6 +235,11 @@
         'Shift-Tab': (cm) => cm.indentSelection('subtract')
       }
     });
+    // AUTOSAVE: every time the code changes, wait 0.4 seconds, then save it to
+    // localStorage under "codelab.code.<language>". Waiting means typing fast
+    // doesn't save after every single key. Old error marks are cleared and the
+    // visualizer is told that its recording no longer matches the code.
+    // (Changes made by setValue, when a language is first loaded, are skipped.)
     let saveT;
     S.cm.on('change', (cm, ch) => {
       if (ch.origin === 'setValue') return;
@@ -131,18 +247,26 @@
       if (window.Viz) window.Viz.markStale();
       clearTimeout(saveT); saveT = setTimeout(() => { if (S.lang) store.set('code.' + S.lang.id, cm.getValue()); }, 400);
     });
+    // AUTO COMPLETE: after you type a letter, show suggestions if the word so
+    // far is at least 2 letters long and you are not inside a string or comment.
     S.cm.on('inputRead', (cm, ch) => {
       if (!/^[A-Za-z_]$/.test(ch.text[0] || '')) return;
       const tok = cm.getTokenAt(cm.getCursor());
       if (tok.type && /string|comment/.test(tok.type)) return;
       if (tok.string.length >= 2) cm.showHint({ hint: hintFn, completeSingle: false });
     });
+    // Keep the "Ln 3, Col 7" display in the status bar up to date.
     S.cm.on('cursorActivity', (cm) => { const c = cm.getCursor(); $('sbPos').textContent = 'Ln ' + (c.line + 1) + ', Col ' + (c.ch + 1); });
+    // Clicking an error marker beside a line number shows its message.
     S.cm.on('gutterClick', (cm, line, gutter) => {
       const info = cm.lineInfo(line);
       if (info.gutterMarkers && info.gutterMarkers.marks && info.gutterMarkers.marks.title) toast(esc(info.gutterMarkers.marks.title), 5000);
     });
   }
+  // hintFn() builds the auto complete list: the language's keywords plus
+  // every word of 3 or more letters already in your code that starts with
+  // what you've typed. A "Set" is a list that never holds duplicates.
+  // Shorter words come first; at most 30 suggestions are shown.
   function hintFn(cm) {
     const cur = cm.getCursor(), tok = cm.getTokenAt(cur);
     const word = tok.string.slice(0, cur.ch - tok.start);
@@ -153,6 +277,9 @@
     const list = Array.from(words).filter((w) => w.startsWith(word) && w !== word).sort((a, b) => a.length - b.length || a.localeCompare(b)).slice(0, 30);
     return list.length ? { list, from: CodeMirror.Pos(cur.line, tok.start), to: CodeMirror.Pos(cur.line, tok.end) } : null;
   }
+  // setCode() replaces everything in the editor and saves it. When
+  // "undoable" is true it is done as a normal edit, so Ctrl+Z can bring the
+  // old code back. Otherwise the undo history is cleared.
   function setCode(code, undoable) {
     if (undoable) S.cm.replaceRange(code, CodeMirror.Pos(0, 0), CodeMirror.Pos(S.cm.lastLine()));
     else { S.cm.setValue(code); S.cm.clearHistory(); }
@@ -161,11 +288,17 @@
   }
 
   /* error / exec markers */
+  // ERROR AND STEP MARKERS IN THE EDITOR
+  // clearMarks() removes all red/amber line highlights and gutter markers.
   function clearMarks() {
     S.marks.forEach((m) => { if (m.kind === 'line') S.cm.removeLineClass(m.h, 'background', m.cls); else m.h.clear(); });
     S.marks = [];
     S.cm.clearGutter('marks');
   }
+  // markLine() highlights a line red (error) or amber (warning), adds a
+  // marker in the gutter and, when a column is known, puts a wavy underline
+  // under the exact word. It ignores impossible line numbers. Note: the
+  // editor counts lines from 0, but people count from 1, hence "line - 1".
   function markLine(line, col, kind, msg) {
     if (!line || line < 1 || line > S.cm.lineCount()) return;
     const cls = kind === 'warn' ? 'cm-warn-line' : 'cm-err-line';
@@ -180,6 +313,8 @@
       if (w.head.ch > w.anchor.ch) S.marks.push({ kind: 'text', h: S.cm.markText(w.anchor, w.head, { className: 'cm-err-text' }) });
     }
   }
+  // setExecLine() moves the visualizer's green highlight and arrow to line n
+  // and scrolls it into view (or removes it when n is empty).
   function setExecLine(n) {
     if (S.execH) { S.cm.removeLineClass(S.execH, 'background', 'cm-exec-line'); S.execH = null; }
     S.cm.clearGutter('exec');
@@ -189,14 +324,28 @@
     S.cm.setGutterMarker(n - 1, 'exec', g);
     S.cm.scrollIntoView({ line: n - 1, ch: 0 }, 80);
   }
+  // gotoLine() puts the cursor on line n (used by the "Go to line" button).
   function gotoLine(n) { S.cm.focus(); S.cm.setCursor(CodeMirror.Pos(n - 1, 0)); S.cm.scrollIntoView(null, 120); }
 
   /* ---------------------------------------------------------------- terminal */
+  // TERMINAL (the output panel)
+  // term() returns the element where output is written; termClear() empties it.
   const term = () => $('termBody');
   function termClear() { term().innerHTML = ''; }
+  // The allowed kinds of terminal text, which decide its colour:
+  // out = normal output, err = errors, warn = warnings,
+  // sys = CodeLab's own messages, ok = success messages.
   const TERM_KINDS = ['out', 'err', 'warn', 'sys', 'ok'];
   // Line/column numbers can come from user-run code (workers, preview iframe); only accept positive integers.
   const toLine = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+  // termWrite() adds text to the terminal. Unknown kinds become "out".
+  // Program output is also collected in S.out (everything) and S.stdout
+  // (normal output only) so the visualizer and challenge checker can use it.
+  // If the last piece of text has the same kind, the new text is joined
+  // onto it instead of creating a new element (faster for lots of output).
+  // textContent inserts plain text, never HTML, which keeps it safe.
+  // If an error arrives while the terminal is hidden, the dot on the
+  // Terminal button starts blinking.
   function termWrite(kind, text) {
     if (!text) return;
     if (!TERM_KINDS.includes(kind)) kind = 'out';
@@ -210,7 +359,16 @@
     if (!S.ui.term && (kind === 'err')) $('tgTerm').classList.add('alert');
   }
   const termSys = (t) => termWrite('sys', t);
+  // setStatus() updates the Ready / Running / Finished / Error badge.
   function setStatus(cls, text) { const s = $('runStatus'); s.className = 'status ' + (cls || ''); s.textContent = text; }
+  // showError() draws the red error box in the terminal.
+  // First it cleans the error details ("raw" may come from code a user ran,
+  // so nothing in it is trusted): line numbers must be real whole numbers
+  // and everything else is converted to text. Then it asks errors.js for a
+  // plain English hint, builds the box (with esc() on every piece of text),
+  // highlights the line in the editor and, if the terminal is hidden, shows
+  // a toast. "Service" errors (like the online compiler being busy) skip the
+  // hint because they aren't caused by the user's code.
   function showError(raw) {
     const lang = S.lang;
     const err = {
@@ -232,21 +390,39 @@
     err.marks.forEach((m) => markLine(toLine(m.line), toLine(m.col), m.kind === 'warn' ? 'warn' : 'err', m.kind === 'warn' ? 'Compiler warning' : 'Error'));
     if (!S.ui.term) { $('tgTerm').classList.add('alert'); toast('✖ ' + esc(err.type || 'Error') + (err.line ? ' on line ' + err.line : '') + ' — open the terminal to see details'); }
   }
+  // setOutTab() switches the bottom panel between the Terminal and the
+  // HTML Preview, hiding the "Program input" box where it doesn't apply.
   function setOutTab(tab) {
     document.querySelectorAll('#outTabs .tab').forEach((b) => b.classList.toggle('on', b.dataset.out === tab));
     $('termBody').hidden = tab !== 'term';
     $('preview').hidden = tab !== 'preview';
     $('stdinBox').hidden = tab !== 'term' || !!(S.lang && S.lang.noStdin);
   }
+  // For HTML pages: counts console.log messages and shows the count on the
+  // Terminal tab, e.g. "Terminal (3)", since the Preview tab is in front.
   let consoleCount = 0;
   function setConsoleCount(n) { consoleCount = n; document.querySelector('#outTabs [data-out=term]').textContent = 'Terminal' + (n && S.lang.engine === 'html' ? ' (' + n + ')' : ''); }
 
   /* ---------------------------------------------------------------- running */
+  // RUNNING CODE
+  // updateRunUI() disables Run (and the challenge Check buttons) while a
+  // program is running, and shows the Stop button only during a run.
   function updateRunUI() {
     $('runBtn').disabled = S.running;
     $('stopBtn').hidden = !S.running;
     document.querySelectorAll('[data-c=check]').forEach((b) => { b.disabled = S.running; });
   }
+  // run() is what happens when you press Run:
+  //  1. Refuse to start a second run while one is going.
+  //  2. Clear old markers (and old output, if "clear on run" is ticked).
+  //  3. Print a fake command line like "$ python3 main.py" for realism.
+  //  4. Ask engines.js to run the code. "await" pauses this function until
+  //     the program finishes, WITHOUT freezing the page.
+  //     "trace" asks for a line by line recording when the visualizer is open.
+  //  5. Report the result: stopped, an error, or "[finished in 27 ms]".
+  //  6. Update the visualizer and, if this run was a challenge check,
+  //     compare the output with the expected answer.
+  // opts can hold { check: 'challenge-id' } when called by a Check button.
   async function run(opts) {
     opts = opts || {};
     if (S.running || !S.lang) return;
@@ -260,6 +436,9 @@
     if (lang.engine === 'html') { if (!S.ui.term) { S.ui.term = true; applyLayout(); } }
     const trace = S.ui.viz && lang.trace !== 'explain';
     const t0 = performance.now();
+    // These are "callbacks": functions handed to the engine so it can report
+    // back while the program runs: emit = new output, clear = wipe terminal,
+    // status = progress messages, preview = show an HTML page.
     const res = await window.Engines.run(lang, code, {
       stdin: lang.noStdin ? '' : $('stdin').value, trace,
       emit: termWrite, clear: termClear,
@@ -268,6 +447,7 @@
     });
     const ms = Math.round(performance.now() - t0);
     S.running = false; updateRunUI();
+    // Report how the run ended. performance.now() measured how long it took.
     if (res.stopped) { termSys('\n[stopped by you]\n'); setStatus('fail', 'Stopped'); }
     else if (res.error) { showError(res.error); setStatus('fail', 'Error'); }
     else {
@@ -280,6 +460,9 @@
     if (opts.check) checkChallenge(opts.check, res, code);
     return res;
   }
+  // loadViz() hands a run's recording to the visualizer (viz.js).
+  // Compiled languages can't be recorded line by line, so for them it uses
+  // "explain mode", which describes the code in reading order instead.
   function loadViz(res, code) {
     const lang = S.lang;
     if (lang.trace === 'explain') {
@@ -293,6 +476,9 @@
   }
 
   /* ---------------------------------------------------------------- guide */
+  // GUIDE PANEL (left side)
+  // renderGuide() highlights the selected tab and draws its contents:
+  // the syntax lessons, best practices, or challenges.
   function renderGuide() {
     const lang = S.lang, body = $('guideBody');
     document.querySelectorAll('#guideTabs .tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === S.guideTab));
@@ -301,6 +487,16 @@
     else renderChallenges(lang, body);
     body.scrollTop = 0;
   }
+  // renderSyntax() draws the syntax lessons for a language:
+  //  * an intro card with a progress bar,
+  //  * a search box and level filter chips (beginner / intermediate / ...),
+  //  * quick jump chips for each section,
+  //  * one card per section with its explanation, a code example (with Copy,
+  //    Load in editor and Run buttons), an optional "Going deeper" note and
+  //    an "I understand this section" checkbox.
+  // Sections that don't match the search or level filter are left out.
+  // Buttons carry data-act and data-sec attributes so one click handler in
+  // bind() can tell which button was pressed and for which section.
   function renderSyntax(lang, body) {
     const done = progress(lang.id);
     const q = S.query.toLowerCase();
@@ -322,11 +518,15 @@
     body.innerHTML = h;
     body.querySelectorAll('pre[data-sec]').forEach((pre) => {
       const s = lang.sections.find((x) => x.id === pre.dataset.sec);
+      // Colour each code example using CodeMirror's highlighter, without
+      // creating a full editor for each one.
       if (CodeMirror.runMode) CodeMirror.runMode(s.code, lang.snippetMode || lang.mode, pre); else pre.textContent = s.code;
     });
     const gs = $('gSearch');
     gs.oninput = () => { S.query = gs.value; const pos = gs.selectionStart; renderSyntax(lang, body); const n = $('gSearch'); n.focus(); n.setSelectionRange(pos, pos); };
   }
+  // renderBest() draws the "Best practices" tab: the language's tips, common
+  // beginner mistakes, general learning advice and a link to official docs.
   function renderBest(lang, body) {
     let h = '<div class="guide-intro"><h2>' + esc(lang.name) + ' best practices</h2><p>Habits that experienced ' + esc(lang.name) + ' developers follow. Beginners: skim these now and come back later. Experienced devs: these are the idioms that make code feel native.</p></div>';
     h += lang.tips.map((t) => '<div class="tip"><i>✔</i><div>' + inline(t) + '</div></div>').join('');
@@ -340,7 +540,12 @@
     if (lang.docs) h += '<p style="margin-top:14px">Official documentation: <a href="' + lang.docs + '" target="_blank" rel="noopener">' + esc(lang.docs) + '</a></p>';
     body.innerHTML = h;
   }
+  // CHALLENGES
+  // SQL and HTML have their own challenges; all other languages share the
+  // "common" list (they all just print text).
   function challengeList(lang) { return window.CHALLENGES[lang.chal || 'common']; }
+  // renderChallenges() draws one card per challenge with its description,
+  // the expected output, and Start / Check / Hint buttons.
   function renderChallenges(lang, body) {
     const list = challengeList(lang);
     const done = chalDone(lang.id);
@@ -350,6 +555,11 @@
       '<div class="acts"><button class="btn sm" data-c="start">Start</button><button class="btn sm primary" data-c="check">✓ Check my answer</button><button class="btn sm ghost" data-c="hint">Hint</button></div><div class="result"></div></div>').join('');
     body.innerHTML = h;
   }
+  // startChallenge() loads a challenge's starting code into the editor.
+  // If the challenge has no custom starter, it builds one from the
+  // language's "scaffold" template with the challenge text added as a
+  // comment (using that language's comment symbol). It asks before
+  // replacing code you have written, and the change can be undone.
   function startChallenge(c) {
     const lang = S.lang;
     let code;
@@ -367,7 +577,17 @@
     S.cm.focus(); S.cm.setCursor(CodeMirror.Pos(ln >= 0 ? ln + 1 : S.cm.lastLine(), 0));
     toast('Challenge loaded — write your solution, then press “Check my answer”.');
   }
+  // norm() tidies output before comparing: removes Windows line endings,
+  // spaces at line ends, and blank lines at the start and end, so harmless
+  // differences don't make a correct answer fail.
   const norm = (s) => String(s).replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').trim();
+  // checkChallenge() decides if your answer is right:
+  //  * "stdout" challenges compare what you printed with the expected text
+  //    and, if wrong, point to the first line that differs;
+  //  * SQL challenges look at the result of your last SELECT query;
+  //  * HTML challenges read your page with DOMParser (which builds a page
+  //    from text WITHOUT running it) and run the challenge's own test.
+  // A pass is saved to localStorage and celebrated with a toast.
   function checkChallenge(id, res, code) {
     const c = challengeList(S.lang).find((x) => x.id === id);
     const box = document.querySelector('.chal[data-chal="' + id + '"] .result');
@@ -401,9 +621,18 @@
   }
 
   /* ---------------------------------------------------------------- language open */
+  // OPENING A LANGUAGE
+  // buildLangMenu() fills the language drop down menu in the top bar.
   function buildLangMenu() {
     $('langMenu').innerHTML = LANGS.map((l) => '<button data-lang="' + l.id + '"><span class="langdot" style="background:' + l.color + '"></span>' + esc(l.name) + '<small>' + (l.kind === 'browser' ? 'instant' : 'cloud') + '</small></button>').join('');
   }
+  // openLang() switches the coding screen to a language:
+  // it updates the top bar, file name and status bar, and, if this is a
+  // different language from before, sets the editor's colouring mode and
+  // indentation, loads your saved code (or the starter example), resets the
+  // terminal, guide and visualizer, and starts preparing that language's
+  // engine in the background ("warm") so the first Run is faster.
+  // opts.guide = open the guide full page; opts.code = code from a share link.
   function openLang(lang, opts) {
     const changed = S.lang !== lang;
     S.lang = lang;
@@ -460,6 +689,15 @@
   }
 
   /* ---------------------------------------------------------------- routing */
+  // ROUTING: choosing the screen from the web address.
+  // The part after # (the "hash") says what to show:
+  //   #/            the home screen
+  //   #/python      Python's coding screen
+  //   #/rust/guide  Rust's guide, full page
+  //   #/python?c=.. Python with code from a share link
+  // A regular expression splits the hash into those pieces. After a share
+  // link is read, the code is removed from the address (history.replaceState)
+  // so refreshing the page doesn't load it again.
   function route() {
     const m = /^#\/([\w-]*)(?:\/(\w+))?(?:\?(.*))?$/.exec(location.hash || '');
     const lang = m && m[1] ? langById(m[1]) : null;
@@ -479,16 +717,27 @@
   }
 
   /* ---------------------------------------------------------------- events */
+  // EVENT HANDLERS: connecting buttons and keys to what they do.
+  // bind() runs once at start up. "x.onclick = fn" means "when x is clicked,
+  // run fn". addEventListener does the same but allows several handlers.
   function bind() {
+    // When the address's hash changes (a link like #/python is clicked), show
+    // the matching screen. Then: theme button, home search box, filter chips.
     window.addEventListener('hashchange', route);
     $('themeBtn').onclick = () => { S.ui.theme = S.ui.theme === 'dark' ? 'light' : 'dark'; applyTheme(); saveUI(); };
     $('langSearch').oninput = renderHome;
     document.querySelectorAll('.filters .chip').forEach((b) => { b.onclick = () => { homeFilter = b.dataset.f; document.querySelectorAll('.filters .chip').forEach((x) => x.classList.toggle('on', x === b)); renderHome(); }; });
 
+    // The language drop down: clicking the button opens/closes the menu;
+    // choosing a language changes the hash; clicking anywhere else closes it.
+    // stopPropagation() stops this click from also reaching the "click
+    // anywhere else" handler, which would close the menu immediately.
     $('langBtn').onclick = (e) => { e.stopPropagation(); $('langMenu').hidden = !$('langMenu').hidden; };
     $('langMenu').onclick = (e) => { const b = e.target.closest('[data-lang]'); if (b) { $('langMenu').hidden = true; location.hash = '#/' + b.dataset.lang; } };
     document.addEventListener('click', (e) => { if (!e.target.closest('.menu-wrap')) $('langMenu').hidden = true; });
 
+    // Run / Stop, the panel toggle buttons, terminal tabs, and the
+    // "Go to line" buttons inside error boxes.
     $('runBtn').onclick = () => run();
     $('stopBtn').onclick = () => window.Engines.stop();
     $('tgGuide').onclick = () => { S.ui.guide = !S.ui.guide; applyLayout(); };
@@ -501,13 +750,19 @@
     $('outTabs').onclick = (e) => { const b = e.target.closest('[data-out]'); if (b) setOutTab(b.dataset.out); };
     $('termBody').addEventListener('click', (e) => { const b = e.target.closest('[data-line]'); if (b) gotoLine(+b.dataset.line); });
 
+    // Editor toolbar: text size (kept between 10 and 24 pixels), copy, share,
+    // download and reset.
     $('fsMinus').onclick = () => { S.ui.fs = clamp(S.ui.fs - 1, 10, 24); applyLayout(); };
     $('fsPlus').onclick = () => { S.ui.fs = clamp(S.ui.fs + 1, 10, 24); applyLayout(); };
     $('copyBtn').onclick = async () => toast((await copyText(S.cm.getValue())) ? 'Code copied to clipboard.' : 'Copy failed — select the code and press Ctrl+C.');
+    // Share: builds a link to this page with your code encoded inside it.
     $('shareBtn').onclick = async () => {
       const url = location.href.split('#')[0] + '#/' + S.lang.id + '?c=' + b64e(S.cm.getValue());
       toast((await copyText(url)) ? 'Share link copied! Anyone who opens it sees this code.' : 'Could not copy the link automatically.');
     };
+    // Download: wraps your code in a Blob (a chunk of file data held in
+    // memory), makes a temporary link to it, and clicks the link so the
+    // browser saves it as a file.
     $('dlBtn').onclick = () => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([S.cm.getValue()], { type: 'text/plain' }));
@@ -515,7 +770,13 @@
     };
     $('resetBtn').onclick = () => { if (confirm('Replace your code with the original ' + S.lang.name + ' starter example? (Ctrl+Z can undo it.)')) { setCode(S.lang.starter, true); toast('Starter example restored.'); } };
 
+    // Guide tab buttons (Syntax / Best practices / Challenges).
     $('guideTabs').onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b) { S.guideTab = b.dataset.tab; renderGuide(); } };
+    // ONE click handler for everything inside the guide. This is called
+    // "event delegation": instead of giving every button its own handler,
+    // we look at what was clicked (e.target) and use .closest() to find which
+    // kind of button it was: level filter, jump chip, Copy / Load / Run on an
+    // example, the "I understand" checkbox, or a challenge button.
     $('guideBody').addEventListener('click', (e) => {
       const lv = e.target.closest('[data-level]');
       if (lv) { S.level = lv.dataset.level; renderGuide(); return; }
@@ -542,6 +803,7 @@
         }
         return;
       }
+      // Challenge buttons: Start, Hint and Check my answer.
       const cb = e.target.closest('[data-c]');
       if (cb) {
         const id = cb.closest('[data-chal]').dataset.chal;
@@ -552,6 +814,11 @@
       }
     });
 
+    // MESSAGES FROM THE HTML PREVIEW. The preview frame can't touch this page
+    // directly (it is sandboxed), so it sends messages with postMessage
+    // instead: console.log output and JavaScript errors. We only accept
+    // messages from our own preview frame, and still treat their contents
+    // as untrusted.
     window.addEventListener('message', (e) => {
       if (e.source !== $('preview').contentWindow || !e.data || !e.data.__lc) return;
       // The preview runs untrusted page code, so treat every field as untrusted data.
@@ -564,6 +831,9 @@
     });
 
     $('helpBtn').onclick = showShortcuts;
+    // KEYBOARD SHORTCUTS for the whole page. e.ctrlKey / e.metaKey mean Ctrl
+    // (Windows) or Cmd (Mac) is held. preventDefault() stops the browser's own
+    // action for that key (for example Ctrl+B opening bookmarks).
     document.addEventListener('keydown', (e) => {
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key === 'Enter' && S.lang && !$('ide').hidden) { e.preventDefault(); run(); }
@@ -575,6 +845,9 @@
       else if (e.key === 'Escape') { if (S.running) window.Engines.stop(); const mb = document.querySelector('.modal-bg'); if (mb) mb.remove(); }
     });
   }
+  // toggleViz() shows or hides the visualizer. When it opens, it fills
+  // itself straight away: explain mode for compiled languages, or a fresh
+  // recorded run for the others.
   function toggleViz() {
     S.ui.viz = !S.ui.viz;
     applyLayout();
@@ -582,6 +855,8 @@
     if (S.lang.trace === 'explain') loadViz({}, S.cm.getValue());
     else if (!window.Viz.steps.length && S.cm.getValue().trim()) run();
   }
+  // showShortcuts() opens the pop up list of keyboard shortcuts. Clicking
+  // the dark background or the Close button removes it.
   function showShortcuts() {
     const rows = [['Ctrl + Enter', 'Run the program'], ['Esc', 'Stop a running program / close dialogs'], ['Ctrl + Space', 'Auto-complete suggestions'], ['Ctrl + /', 'Comment / uncomment line(s)'], ['Tab / Shift + Tab', 'Indent / outdent'], ['Ctrl + Z / Ctrl + Y', 'Undo / redo'], ['Ctrl + `', 'Show / hide terminal'], ['Ctrl + B', 'Show / hide guide'], ['Alt + V', 'Show / hide visualizer'], ['Alt + ← / →', 'Step the visualizer back / forward'], ['← / → / Space', 'Step / play when the visualizer panel is focused']];
     const bg = document.createElement('div'); bg.className = 'modal-bg';
@@ -590,6 +865,11 @@
     document.body.appendChild(bg);
   }
 
+  // START UP: these lines run once, in order, when the page loads:
+  // apply the saved theme, build the editor, connect the visualizer (telling
+  // it how to highlight lines and how to start a run), fill the language
+  // menu, make the splitters draggable, connect all buttons, and finally
+  // show the screen that matches the web address.
   /* ---------------------------------------------------------------- boot */
   applyTheme();
   initEditor();

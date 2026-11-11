@@ -1,19 +1,61 @@
+// ================================================================
+//  engines.js: the part that actually RUNS your code
+// ================================================================
+//  Each language needs a different "engine" (a program that can run
+//  that language). This file has one for each kind:
+//    * JavaScript : run inside the browser itself
+//    * Python     : Pyodide, real Python converted to run in browsers
+//    * Lua        : Fengari, a Lua written in JavaScript
+//    * SQL        : sql.js, the SQLite database converted for browsers
+//    * HTML & CSS : drawn in a sandboxed frame (a page inside the page)
+//    * C, C++, Java, Rust, Go, C#, Ruby, PHP : sent over the internet to
+//      Wandbox, a free online compiler service, which runs them on its
+//      own computers and sends back the output.
+//
+//  KEY WORDS used in this file:
+//  * Web Worker: a separate background thread (a second line of work
+//    running at the same time) for JavaScript. Running your code in a
+//    worker means an endless loop can't freeze the page, and the worker
+//    can simply be shut down ("terminated") when you press Stop.
+//  * Message: workers can't touch the page; they talk to it by sending
+//    messages (postMessage) and receiving them (onmessage).
+//  * Promise: an object standing for a result that will arrive LATER.
+//    "resolve" delivers that result. "await" waits for it.
+//  * async function: a function that can use "await".
+//  * CDN: a public server that hosts code libraries for any website.
+//  * Trace: a step by step recording of a program for the visualizer.
+//  * Compile: translate code into a form the computer can run. Languages
+//    like C must be compiled first; that's done on Wandbox.
+// ================================================================
 /* Run engines. Each engine resolves to:
    { ok, stopped, error:{type,message,line,col,text}, steps, mode, extra }  */
+// IIFE wrapper: keeps every name in this file private (see app.js).
 (function () {
   'use strict';
 
+  // SETTINGS
+  // MAX_STEPS: stop recording a trace after this many lines (protects
+  // against endless loops filling up memory).
+  // TIMEOUT: stop any program that runs longer than 10,000 ms (10 seconds).
+  // The web addresses point to the CDN copies of each language engine. The
+  // version numbers are pinned (fixed) so an update can't break the site.
   const MAX_STEPS = 2500;
   const TIMEOUT = 10000;
   const ACORN = 'https://cdn.jsdelivr.net/npm/acorn@8.11.3/dist/acorn.js';
   const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
   const SQLJS = 'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/';
 
+  // SRI fingerprints for scripts loaded later on demand (see the comment
+  // right below).
   // Subresource Integrity: the browser refuses these files if the CDN ever serves different contents.
   const SRI = {
     [ACORN]: 'sha384-ZzOQATwraE9ywaYqMdoWStSsI1G6qRnAvJpKgcT3mrvl8PC5IlfxGzIu1WGBvydm',
     [SQLJS + 'sql-wasm.js']: 'sha384-8D3Rsfo535FqoC1pHCCQMrNf75UgzyoG/HQm9zOzITRrz3QKzecc2E7JXKGCXoWu'
   };
+  // loadScript() adds a <script> tag to the page to download a library the
+  // first time it is needed. "scripts" remembers each download's Promise so
+  // the same file is never downloaded twice. If the download fails, the
+  // remembered Promise is removed so the next Run can try again.
   const scripts = {};
   function loadScript(src) {
     if (!scripts[src]) {
@@ -27,23 +69,42 @@
     }
     return scripts[src];
   }
+  // workerFrom() creates a Web Worker from one of the functions below.
+  // It turns the function into text (fn.toString()), wraps it so it runs
+  // immediately, packs it into a Blob (in memory file data) and gives that
+  // to the browser as the worker's code. This avoids needing extra files.
   function workerFrom(fn) {
     const url = URL.createObjectURL(new Blob(['(' + fn.toString() + ')()'], { type: 'text/javascript' }));
     return new Worker(url);
   }
 
   /* ======================================================= JavaScript worker */
+  // JAVASCRIPT ENGINE: the code that runs INSIDE the worker.
+  // Everything inside this function lives in the worker, not the page.
+  // The variables keep track of: the input lines (for prompt()), the trace
+  // steps recorded so far, how much has been printed, and the "call stack"
+  // (which functions are currently running, for the visualizer).
   function jsWorkerMain() {
     let lines = [], li = 0, steps = [], limit = 0, outLen = 0, total = 0, halted = false, truncated = false;
     const stack = [];
+    // post() sends a message to the page. emit() sends printed text, and
+    // stops after 300,000 characters so a runaway program can't flood the page.
+    // "self" is the worker's name for itself (like "window" on a page).
     const post = (m) => self.postMessage(m);
     const emit = (k, s) => {
       if (total > 300000) { if (!truncated) { truncated = true; post({ t: 'out', k: 'err', s: '\n[output truncated]\n' }); } return; }
       total += s.length; outLen += s.length; post({ t: 'out', k, s });
     };
+    // A special error used to stop the program when the trace is too long.
+    // "class ... extends Error" makes a new kind of error based on the
+    // built in Error type.
     class TraceLimit extends Error { constructor() { super('Trace limit'); this.name = 'TraceLimit'; } }
 
     /* ---- console formatting (similar to Node's util.inspect) ---- */
+    // Helpers that turn values into readable text for console.log, in the
+    // same style Node.js (JavaScript outside the browser) uses:
+    // q() puts quotes around a string, fit() puts short lists on one line and
+    // long ones on several lines.
     const q = (s) => "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n') + "'";
     function fit(o, c, items) {
       if (!items.length) return o + c;
@@ -51,6 +112,10 @@
       if (one.length <= 72 && one.indexOf('\n') < 0) return one;
       return o + '\n' + items.map((i) => '  ' + i.replace(/\n/g, '\n  ')).join(',\n') + '\n' + c;
     }
+    // inspect() turns ANY value into display text: numbers, strings, lists,
+    // objects, Maps, Sets, dates and errors. "depth" stops it going too deep
+    // into nested objects, and "seen" detects an object that contains itself
+    // (which would otherwise loop forever), printing [Circular] instead.
     function inspect(v, depth, seen) {
       const t = typeof v;
       if (t === 'string') return depth === 0 ? v : q(v);
@@ -79,6 +144,8 @@
       const prefix = cn && cn !== 'Object' ? cn + ' ' : '';
       return prefix + fit('{', '}', keys.map((k) => (/^[A-Za-z_$][\w$]*$/.test(k) ? k : q(k)) + ': ' + inspect(v[k], d1, seen)));
     }
+    // format() joins console.log's arguments with spaces and supports
+    // placeholders like %s (string) and %d (number), as real consoles do.
     function format(args) {
       const first = args[0];
       const rest = args.slice(1);
@@ -102,6 +169,10 @@
       }
       return args.map(str).join(' ');
     }
+    // REPLACING THE CONSOLE. console.log normally writes to the browser's
+    // hidden developer console. Here every console function is replaced with
+    // our own version that sends the text to CodeLab's terminal instead.
+    // console.group indents later lines; console.table draws a text table.
     let indent = '';
     const mk = (k) => (...a) => { emit(k, indent + format(a).split('\n').join('\n' + indent) + '\n'); };
     console.log = mk('out'); console.info = mk('out'); console.debug = mk('out');
@@ -131,6 +202,8 @@
       const row = (r) => '│' + r.map((c, i) => ' ' + c.padEnd(w[i]) + ' ').join('│') + '│';
       console.log([ln('┌', '┬', '┐'), row(head), ln('├', '┼', '┤')].concat(body.map(row), [ln('└', '┴', '┘')]).join('\n'));
     };
+    // alert / confirm / prompt don't exist in workers, so simple versions are
+    // provided. prompt() reads the next line from the "Program input" box.
     self.alert = (m) => emit('out', String(m) + '\n');
     self.confirm = () => true;
     self.prompt = (m) => {
@@ -141,6 +214,10 @@
     };
 
     /* ---- timers tracked so we know when the program has settled ---- */
+    // TIMERS. setTimeout / setInterval schedule code for later. They are
+    // wrapped so the worker can count how many are still waiting ("live"),
+    // and so it knows the program has really finished only when none remain.
+    // Errors inside timers are reported instead of being lost.
     const _st = self.setTimeout, _ct = self.clearTimeout, _si = self.setInterval, _ci = self.clearInterval;
     const live = new Set();
     const report = (e) => post({ t: 'error', name: (e && e.name) || 'Error', message: e && e.message !== undefined ? String(e.message) : String(e), stack: (e && e.stack) || '' });
@@ -151,6 +228,10 @@
     self.addEventListener('unhandledrejection', (ev) => { ev.preventDefault(); report(ev.reason instanceof Error ? ev.reason : new Error('Unhandled promise rejection: ' + inspect(ev.reason, 1, []))); });
 
     /* ---- tracing support ---- */
+    // TRACING SUPPORT
+    // ser() ("serialise") turns a value into a small description the
+    // visualizer can draw, like { t: 'int', v: '5' } or a list of items.
+    // Big lists are cut to 20 items and nesting stops after 3 levels.
     function ser(v, d, seen) {
       const t = typeof v;
       if (v === null) return { t: 'none', v: 'null' };
@@ -173,11 +254,16 @@
       const cn = v.constructor && v.constructor.name;
       return { t: 'dict', k: cn && cn !== 'Object' ? cn : 'object', n: keys.length, items: keys.slice(0, 20).map((k) => [{ t: 'key', v: k }, ser(v[k], d + 1, seen)]) };
     }
+    // serMap() describes every variable in a group, skipping functions.
     function serMap(o) {
       const out = {};
       for (const k in o) { const v = o[k]; if (typeof v === 'function') continue; out[k] = ser(v, 0, []); }
       return out;
     }
+    // These functions are called by YOUR code after trace.js has added calls
+    // to them. __enter / __leave mark entering and leaving a function (for
+    // the call stack). __t(line, getter) records one step: the line number
+    // plus every variable's current value, read by the getter function.
     self.__enter = (name) => { stack.push({ name, vars: null }); };
     self.__leave = () => { stack.pop(); };
     self.__t = (line, getter) => {
@@ -194,6 +280,12 @@
       steps.push({ line, frames, out: outLen });
     };
 
+    // WHEN THE PAGE SENDS CODE TO RUN:
+    // 1. Store the input lines and step limit.
+    // 2. Run the code with eval() (which runs text as JavaScript). Errors are
+    //    caught and reported, except the deliberate trace limit stop.
+    // 3. Wait (up to 8 seconds) for any timers still pending to finish.
+    // 4. Send "done" with the recorded steps.
     const sleep = (ms) => new Promise((r) => _st(r, ms));
     self.onmessage = async (e) => {
       const d = e.data;
@@ -210,12 +302,24 @@
     };
   }
 
+  // BACK ON THE PAGE: helpers for running JavaScript.
+  // jsErrorPos() finds the line and column of an error. A "stack trace" is
+  // the error's record of where it happened; the pattern finds the numbers.
   function jsErrorPos(stack) {
     if (!stack) return null;
     const m = /<anonymous>:(\d+):(\d+)/.exec(stack) || /> eval:(\d+):(\d+)/.exec(stack);
     return m ? { line: +m[1], col: +m[2] } : null;
   }
 
+  // runJS() runs JavaScript:
+  //  1. Load Acorn (a JavaScript "parser": it reads code and understands its
+  //     structure) and use it to check for syntax errors (typing mistakes
+  //     in the code's grammar) BEFORE running, giving a precise line number.
+  //  2. If the visualizer is open, ask trace.js to add the recording calls.
+  //  3. Start a fresh worker, send it the code, and listen for messages:
+  //     output to print, errors, and "done".
+  //  4. If it runs too long, stop it with a Timeout error. Pressing Stop
+  //     also terminates the worker (o.setCurrent tells the Stop button how).
   async function runJS(lang, code, o) {
     let acornOk = true;
     try { await loadScript(ACORN); } catch (e) { acornOk = false; }
@@ -251,6 +355,10 @@
   }
 
   /* ======================================================= Python (Pyodide worker) */
+  // PYTHON ENGINE (Pyodide). This function runs inside its own worker.
+  // importScripts() downloads Pyodide. On "init" it loads Python and the
+  // helper program PY_HARNESS (below); on "run" it hands your code, input,
+  // and settings to Python and sends back the result as JSON text.
   function pyWorkerMain() {
     importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
     let pyodide = null;
@@ -277,6 +385,14 @@
     };
   }
 
+  // PY_HARNESS is a small PYTHON program stored as text. (String.raw keeps
+  // backslashes exactly as typed.) No JavaScript comments can go inside it,
+  // because they would become part of the Python code. In short, it:
+  //  * replaces print()'s output stream and input() so they talk to CodeLab,
+  //  * compiles your code to catch syntax errors with their line numbers,
+  //  * when tracing, uses Python's sys.settrace to record every line run
+  //    with all variables (and return values of functions),
+  //  * formats errors like real Python tracebacks ("Traceback ...").
   const PY_HARNESS = String.raw`
 import sys, json, builtins, traceback
 
@@ -454,6 +570,10 @@ def _run(code, stdin_text, trace, limit):
     return json.dumps(res)
 `;
 
+  // The Python worker is kept alive between runs because loading Python
+  // takes several seconds. pyInit() starts it once (showing a "Loading
+  // Python..." message) and remembers the Promise; pyReset() throws it away
+  // (after Stop or a timeout) so the next run starts a fresh one.
   const py = { worker: null, ready: null };
   function pyReset() { if (py.worker) py.worker.terminate(); py.worker = null; py.ready = null; }
   function pyInit(o) {
@@ -470,6 +590,9 @@ def _run(code, stdin_text, trace, limit):
     return py.ready;
   }
 
+  // runPython(): make sure Python is loaded, then send the code to the
+  // worker and turn its reply into CodeLab's standard result format.
+  // Stopping or timing out kills the worker with pyReset().
   async function runPython(lang, code, o) {
     try { await pyInit(o); }
     catch (e) { return { ok: false, error: { type: 'LoadError', message: 'Could not load the Python runtime. ' + e.message + ' (It is downloaded from a CDN, so an internet connection is needed.)' } }; }
@@ -493,6 +616,8 @@ def _run(code, stdin_text, trace, limit):
   }
 
   /* ======================================================= Lua (Fengari worker) */
+  // LUA ENGINE (Fengari). This runs inside its own worker.
+  // Fengari expects a "window", so the worker pretends to have one.
   function luaWorkerMain() {
     self.window = self; // fengari-web expects a window global
     importScripts('https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js');
@@ -505,6 +630,11 @@ def _run(code, stdin_text, trace, limit):
       const steps = [];
       const L = lauxlib.luaL_newstate();
       lualib.luaL_openlibs(L);
+      // reg() makes a JavaScript function callable from Lua under a name.
+      // Lua and JavaScript store text differently, so arguments are converted
+      // (to_jsstring) on the way in and the result (to_luastring) on the way out.
+      // Three are registered: __out (print text), __rec (record a trace step)
+      // and __readline (read a line of input).
       function reg(name, fn) {
         lua.lua_pushcfunction(L, function (L) {
           const n = lua.lua_gettop(L);
@@ -525,6 +655,9 @@ def _run(code, stdin_text, trace, limit):
       lua.lua_pushstring(L, to_luastring(d.code)); lua.lua_setglobal(L, to_luastring('__code'));
       lua.lua_pushboolean(L, d.trace ? 1 : 0); lua.lua_setglobal(L, to_luastring('__trace'));
       lua.lua_pushinteger(L, d.limit); lua.lua_setglobal(L, to_luastring('__limit'));
+      // Load and run the Lua "prelude" (LUA_PRELUDE below), which runs your
+      // code. Its three results are: did it succeed, an error message, and
+      // whether the error was a syntax error or a runtime error.
       const p = to_luastring(d.prelude);
       let status = lauxlib.luaL_loadbuffer(L, p, p.length, to_luastring('=prelude'));
       if (status === 0) status = lua.lua_pcall(L, 0, 3, 0);
@@ -536,6 +669,12 @@ def _run(code, stdin_text, trace, limit):
     };
   }
 
+  // LUA_PRELUDE is a small LUA program stored as text (no JavaScript
+  // comments allowed inside it). It replaces print and io.write/io.read so
+  // they talk to CodeLab, then loads your code as a chunk named "program".
+  // When tracing it uses Lua's debug.sethook, which calls a function before
+  // every line, to record local variables, upvalues (outer variables a
+  // function uses) and globals as JSON text.
   const LUA_PRELUDE = String.raw`
 local out, rec, readline = __out, __rec, __readline
 local code, trace, limit = __code, __trace, __limit
@@ -662,6 +801,9 @@ debug.sethook()
 return ok, ok and '' or tostring(e), 'runtime'
 `;
 
+  // runLua(): start a fresh Lua worker, send the code, collect the output,
+  // and turn messages like "program:3: attempt to..." into a line number
+  // and a clean error message.
   async function runLua(lang, code, o) {
     return new Promise((resolve) => {
       const w = workerFrom(luaWorkerMain);
@@ -687,7 +829,11 @@ return ok, ok and '' or tostring(e), 'runtime'
   }
 
   /* ======================================================= SQL (sql.js) */
+  // SQL ENGINE (sql.js, the SQLite database compiled to WebAssembly: a fast
+  // low level code format browsers can run).
   let sqlPromise = null;
+  // asciiTable() draws query results as a text table with box drawing
+  // characters, sizing each column to its widest value.
   function asciiTable(cols, rows) {
     const cell = (v) => (v === null ? 'NULL' : String(v));
     const data = rows.map((r) => r.map(cell));
@@ -696,6 +842,10 @@ return ok, ok and '' or tostring(e), 'runtime'
     const row = (r) => '│' + r.map((c, i) => ' ' + c.padEnd(w[i]) + ' ').join('│') + '│';
     return [line('┌', '┬', '┐'), row(cols), line('├', '┼', '┤')].concat(data.map(row), [line('└', '┴', '┘')]).join('\n');
   }
+  // sqlSnapshot() reads every table's columns and first 50 rows so the
+  // visualizer can show the whole database after each statement. Table
+  // names are wrapped in double quotes (and inner quotes doubled) so
+  // unusual names can't break the query.
   function sqlSnapshot(db) {
     const tables = [];
     const r = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
@@ -707,6 +857,11 @@ return ok, ok and '' or tostring(e), 'runtime'
     });
     return tables;
   }
+  // runSQL(): start a brand new, empty in memory database, then run your
+  // SQL one statement at a time. For each statement it works out its line
+  // number, prints either a result table or "OK, 3 rows affected", and
+  // (when tracing) records a snapshot of all tables. If a statement fails,
+  // it reports which line it was on.
   async function runSQL(lang, code, o) {
     try {
       await loadScript(SQLJS + 'sql-wasm.js');
@@ -758,16 +913,24 @@ return ok, ok and '' or tostring(e), 'runtime'
   }
 
   /* ======================================================= HTML */
+  // HTML ENGINE
+  // HTML_SNIPPET is a tiny script added to your page before it is shown. It
+  // forwards your page's console.log messages and JavaScript errors to
+  // CodeLab using postMessage, so they appear in the Terminal tab.
   const HTML_SNIPPET = '(function(){var p=function(k,a){try{parent.postMessage({__lc:1,kind:k,text:a.map(function(x){try{return typeof x==="string"?x:(x instanceof Error?x.stack||String(x):JSON.stringify(x))}catch(e){return String(x)}}).join(" ")},"*")}catch(e){}};' +
     '["log","info","debug"].forEach(function(k){console[k]=function(){p("out",[].slice.call(arguments))}});console.warn=function(){p("warn",[].slice.call(arguments))};console.error=function(){p("err",[].slice.call(arguments))};' +
     'window.addEventListener("error",function(e){parent.postMessage({__lc:1,kind:"jserror",text:e.message,line:e.lineno},"*")});' +
     'window.addEventListener("unhandledrejection",function(e){p("err",["Unhandled promise rejection:",String(e.reason)])});})();';
+  // injectHtml() places that script just inside <head> (or <html>, or after
+  // <!doctype>) on the SAME line, so your line numbers stay correct.
   function injectHtml(code) {
     const inj = '<script>' + HTML_SNIPPET + '<\/script>';
     const m = /<head[^>]*>/i.exec(code) || /<html[^>]*>/i.exec(code) || /<!doctype[^>]*>/i.exec(code);
     if (m) { const at = m.index + m[0].length; return code.slice(0, at) + inj + code.slice(at); }
     return inj + code;
   }
+  // runHTML(): show the page in the Preview frame and, when tracing, scan
+  // its tags for the visualizer's tree view.
   async function runHTML(lang, code, o) {
     o.preview(injectHtml(code));
     const steps = o.trace ? window.Trace.scanHtml(code) : null;
@@ -775,12 +938,19 @@ return ok, ok and '' or tostring(e), 'runtime'
   }
 
   /* ======================================================= Wandbox (compiled languages) */
+  // COMPILED LANGUAGES (via the Wandbox online service)
+  // wbList caches (keeps a copy of) Wandbox's list of available compilers.
   let wbList = null;
+  // versionScore() turns a compiler's version into a number for sorting, so
+  // the newest compiler is chosen. "head" means the latest development
+  // version, so it scores highest.
   function versionScore(c) {
     if (/head/i.test(c.name) || /head/i.test(c.version || '')) return 1e9;
     const nums = String(c.version || c.name).match(/\d+/g) || [0];
     return nums.slice(0, 3).reduce((a, n, i) => a + (+n) / Math.pow(1000, i), 0);
   }
+  // wbCompiler() picks which Wandbox compiler to use for a language,
+  // preferring a family if the language asks (e.g. GCC for C), newest first.
   async function wbCompiler(lang) {
     if (!wbList) {
       const r = await fetch('https://wandbox.org/api/list.json');
@@ -792,6 +962,9 @@ return ok, ok and '' or tostring(e), 'runtime'
     cands.sort((a, b) => versionScore(b) - versionScore(a));
     return cands[0].name;
   }
+  // wbParseLines() finds line numbers in compiler messages. Compilers
+  // write locations in different styles (prog.c:4:5, prog.cs(4,17),
+  // on line 3...), and this regular expression understands them all.
   function wbParseLines(text, kinds) {
     const marks = [];
     const re = /(?:prog|Main|main|input|Program|source_file|jdoodle)\.\w+[:(](\d+)(?:[:,](\d+))?\)?:?\s*(?:(?:fatal )?(error|warning)|\w*\s*(?:error|warning))?/g;
@@ -801,6 +974,8 @@ return ok, ok and '' or tostring(e), 'runtime'
     if (!marks.length && php) marks.push({ line: +php[1], kind: 'err' });
     return marks;
   }
+  // runWandbox(): send code to Wandbox and interpret the reply.
+  // AbortController lets the Stop button cancel the network request.
   async function runWandbox(lang, code, o) {
     const ctl = new AbortController();
     let finished = false, timer;
@@ -811,9 +986,17 @@ return ok, ok and '' or tostring(e), 'runtime'
       try {
         o.status('Compiling on the online runner…' + (lang.wb.slow ? ' (' + lang.name + ' builds there can take 20–60 seconds)' : ''));
         const compiler = await wbCompiler(lang);
+        // Some languages adjust the code first (Java: "public class Main" can't
+        // compile in a file Wandbox names prog.java, so "public" is dropped
+        // without changing line numbers).
         const src = lang.wb.transform ? lang.wb.transform(code) : code;
         const body = { code: src, compiler, stdin: o.stdin || '', save: false };
         if (lang.wb.flags) body['compiler-option-raw'] = lang.wb.flags.split(/\s+/).join('\n'); // one option per line
+        // Send the code with fetch() (the browser's way to talk to other web
+        // servers). Wandbox is a free shared service, so it is sometimes busy:
+        //  * 429 means "too many requests", so ask the user to wait a minute;
+        //  * 502 to 504 and some error texts mean the server is overloaded, so
+        //    wait a little and retry (up to 3 times).
         const infra = /OCI runtime error|Resource temporarily unavailable|File size limit exceeded/;
         let j;
         for (let attempt = 0; attempt < 4; attempt++) {
@@ -837,6 +1020,9 @@ return ok, ok and '' or tostring(e), 'runtime'
         if (infra.test(cerr) || infra.test(j.program_error || '')) {
           return finish({ ok: false, error: { type: 'RunnerBusy', message: 'The online compiler is overloaded right now. Wait a few seconds and press Run again.', text: (cerr || j.program_error).trim() } });
         }
+        // Work out what happened. A status other than 0 means failure. If
+        // nothing ran and the compiler complained, it was a COMPILE error (the
+        // code couldn't be translated); otherwise the program ran.
         const failed = String(j.status) !== '0' || !!j.signal;
         const ranProgram = !!(j.program_output || j.program_error || j.signal);
         const compiled = !(failed && !ranProgram && cerr);
@@ -845,11 +1031,17 @@ return ok, ok and '' or tostring(e), 'runtime'
           const marks = wbParseLines(text);
           // Prefer the first location that follows the first "error" (Rust prints locations on the line after the message).
           // GCC puts the location before "error" on the same line, so start at the beginning of that line.
+          // Pick the line of the FIRST error. Starting at the beginning of the line
+          // containing "error" works for both GCC (location before the word) and
+          // Rust (location on the line after).
           const errAt = text.search(/\berror\b/i);
           const first = (errAt >= 0 && wbParseLines(text.slice(text.lastIndexOf('\n', errAt) + 1))[0]) || marks.find((m) => m.kind === 'err') || marks[0];
           const firstLine = text.split('\n').find((l) => /error/i.test(l)) || text.split('\n')[0];
           return finish({ ok: false, mode: 'explain', error: { type: 'CompileError', message: firstLine.replace(/^.*?(?:error[^:]*:|error\[[^\]]*\]:)\s*/i, '').trim() || firstLine, line: first && first.line, col: first && first.col, text, marks } });
         }
+        // The program compiled. Show any compiler warnings, then the output. If
+        // it exited with a failure status or a signal (a forced stop, like a
+        // crash), report a runtime error using the most useful line of the message.
         const warnText = (cerr + '\n' + cmsg).trim();
         if (warnText) o.emit('warn', warnText + '\n\n');
         const marks = warnText ? wbParseLines(warnText) : [];
@@ -877,7 +1069,11 @@ return ok, ok and '' or tostring(e), 'runtime'
   /* ======================================================= result sanitising
      Traces and errors are produced inside workers that run the learner's (or a share link's) code,
      which can post arbitrary messages. Normalise them to the expected shapes and types. */
+  // toLine() accepts only positive whole numbers as line numbers.
   const toLine = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
+  // cleanVal() / cleanVars() rebuild a recorded value from scratch with only
+  // the expected fields, converted to the expected types (text or number),
+  // limited in size and depth. Anything unexpected becomes a harmless "…".
   function cleanVal(v, d) {
     if (!v || typeof v !== 'object' || d > 6) return { t: 'ref', v: '…' };
     const o = { t: String(v.t), v: v.v == null ? '' : String(v.v) };
@@ -893,6 +1089,10 @@ return ok, ok and '' or tostring(e), 'runtime'
     Object.keys(vars).slice(0, 200).forEach((k) => { out[k] = cleanVal(vars[k], 0); });
     return out;
   }
+  // cleanResult() checks every result before the rest of the site uses it.
+  // This is a SECURITY measure: the code being run (possibly from a share
+  // link) could send fake messages, so error details and trace steps are
+  // rebuilt from scratch with only safe, expected values.
   function cleanResult(res) {
     if (!res || typeof res !== 'object') return { ok: false, error: { type: 'InternalError', message: 'The runner returned no result.' } };
     if (res.error) {
@@ -910,6 +1110,14 @@ return ok, ok and '' or tostring(e), 'runtime'
   }
 
   /* ======================================================= dispatcher */
+  // THE PUBLIC INTERFACE: window.Engines, used by app.js.
+  // "current" holds a way to stop whatever program is running right now.
+  //  * run(): fill in default options, pick the right engine for the
+  //    language, run it, and clean the result. Any unexpected crash becomes
+  //    a friendly "InternalError" instead of breaking the page.
+  //  * stop(): stop the running program.
+  //  * warm(): start downloading/loading a language's engine early, while
+  //    you read or type, so your first Run is faster.
   let current = null;
   const Engines = {
     MAX_STEPS,
@@ -932,5 +1140,6 @@ return ok, ok and '' or tostring(e), 'runtime'
       else if (lang.engine === 'wandbox') { if (!wbList) fetch('https://wandbox.org/api/list.json').then((r) => r.json()).then((j) => { wbList = j; }).catch(() => {}); }
     }
   };
+  // Share the Engines object with the other files.
   window.Engines = Engines;
 })();

@@ -1,8 +1,43 @@
+// ================================================================
+//  trace.js: understanding code line by line
+// ================================================================
+//  This file has three tools the visualizer uses:
+//   1. instrumentJS(): adds hidden "record this step" calls to JavaScript
+//      code, so running it produces a step by step recording (a "trace").
+//   2. explainLine() / explainAll(): describe in plain English what a line
+//      of code does (e.g. "Creates the variable total and stores 0 in it").
+//   3. scanHtml(): lists a web page's elements and CSS rules in order, for
+//      the visualizer's page structure tree.
+//
+//  KEY WORDS used in this file:
+//  * Parse: read code and work out its structure, like diagramming a
+//    sentence. A "parser" (here, the Acorn library) does this.
+//  * AST (Abstract Syntax Tree): the parser's result, a tree of "nodes".
+//    Each node is one piece of code (a statement, a function, a loop...)
+//    with a "type" such as 'IfStatement', and child nodes inside it.
+//  * Statement: one complete instruction, like "let x = 5;".
+//  * Scope: the region of code where a variable exists. A variable made
+//    inside a function can't be seen outside it.
+//  * Instrument: to add measuring code to a program without changing what
+//    it does, like fitting sensors to a machine.
+//  * Regular expression (regex): a pattern for matching text, written
+//    between slashes like /^if\b/. ^ means "start of the text".
+// ================================================================
 /* Tracing helpers: JS instrumenter, per-line explainer, HTML scanner. */
+// IIFE wrapper: keeps every name in this file private (see app.js).
 (function () {
   'use strict';
 
   /* ================================================ JavaScript instrumenter */
+  // ================ PART 1: JAVASCRIPT INSTRUMENTER ================
+  // instrumentJS(code) returns a copy of the code with extra calls added:
+  //   __t(lineNumber, getter);   before every statement
+  //   __enter('name') ... __leave()   around every function body
+  // The getter is a tiny function that reads every variable in scope at
+  // that moment. The worker in engines.js defines __t / __enter / __leave
+  // and uses them to record each step. The line numbers never change,
+  // because no new lines are added, only text within existing lines.
+  // "edits" collects every insertion first; they are applied at the end.
   function instrumentJS(code, acorn) {
     const ast = acorn.parse(code, { ecmaVersion: 'latest', locations: true });
     const edits = [];
@@ -10,6 +45,8 @@
     const add = (pos, text) => edits.push({ pos, text, seq: seq++ });
     const FN = { FunctionDeclaration: 1, FunctionExpression: 1, ArrowFunctionExpression: 1 };
 
+    // patternNames() collects variable names from a declaration, including
+    // "destructuring" forms like const { a, b } = obj or const [x, y] = list.
     function patternNames(p, out) {
       if (!p) return;
       switch (p.type) {
@@ -20,6 +57,8 @@
         case 'AssignmentPattern': patternNames(p.left, out); break;
       }
     }
+    // eachChild() calls fn for every child node of a node (every property
+    // that holds another node or a list of nodes).
     function eachChild(node, fn) {
       for (const k in node) {
         if (k === 'type' || k === 'start' || k === 'end' || k === 'loc') continue;
@@ -28,6 +67,9 @@
         else if (v && typeof v.type === 'string') fn(v);
       }
     }
+    // collectVars() finds every "var" variable in a function (var variables
+    // belong to the whole function), without looking inside nested functions.
+    // lexNames() finds "let" and "const" variables declared directly in a block.
     function collectVars(node, out) {
       if (!node || typeof node.type !== 'string' || FN[node.type]) return;
       if (node.type === 'VariableDeclaration' && node.kind === 'var') node.declarations.forEach((d) => patternNames(d.id, out));
@@ -38,6 +80,12 @@
       stmts.forEach((s) => { if (s.type === 'VariableDeclaration' && s.kind !== 'var') s.declarations.forEach((d) => patternNames(d.id, out)); });
       return out;
     }
+    // getterFor() writes the text of the getter function for a statement.
+    // "scopes" is the list of nested scopes the statement sits in. Variables
+    // of the current function are "locals" (__l); the program's top level
+    // variables are "globals" (__g). Each read is wrapped in try/catch because
+    // a "let" variable read before its declaration line throws an error.
+    // traceText() builds the full __t(...) call for a statement.
     function getterFor(scopes) {
       let fnIdx = -1;
       for (let i = scopes.length - 1; i > 0; i--) if (scopes[i].fn) { fnIdx = i; break; }
@@ -49,18 +97,27 @@
     }
     const traceText = (s, scopes) => '__t(' + s.loc.start.line + ',' + getterFor(scopes) + ');';
 
+    // visitStatements() adds a __t call before each statement in a list,
+    // skipping function and class declarations (nothing "happens" there yet).
     function visitStatements(list, scopes) {
       list.forEach((s) => {
         if (!(s.type === 'FunctionDeclaration' || s.type === 'ClassDeclaration' || s.type === 'EmptyStatement' || s.directive)) add(s.start, traceText(s, scopes));
         visit(s, scopes);
       });
     }
+    // wrapBody(): an if/loop body written without { } (e.g. "if (x) y();")
+    // gets braces added so a __t call can go inside it.
     function wrapBody(s, scopes) {
       if (s.type === 'BlockStatement' || s.type === 'EmptyStatement') { visit(s, scopes); return; }
       add(s.start, '{' + traceText(s, scopes));
       visit(s, scopes);
       add(s.end, '}');
     }
+    // visitFunction(): start a new scope with the function's parameters and
+    // variables, and wrap its body with __enter / try / finally __leave, so
+    // the call stack stays correct even if an error is thrown. ("finally"
+    // runs whether or not an error happened.) async and generator functions
+    // can pause midway, so they aren't tracked on the stack.
     function visitFunction(fn, scopes, hint) {
       const names = [];
       fn.params.forEach((p) => patternNames(p, names));
@@ -79,6 +136,11 @@
     }
     function keyName(n) { return n && (n.name || (n.value !== undefined ? String(n.value) : null)); }
 
+    // visit() walks the whole tree. A "switch" picks what to do based on the
+    // node's type: functions get visitFunction, blocks and loops start new
+    // scopes, if/loop bodies get wrapBody, and everything else just has its
+    // children visited. "hint" carries a name for unnamed functions, like
+    // the variable or property they are assigned to.
     function visit(node, scopes, hint) {
       if (!node || typeof node.type !== 'string') return;
       switch (node.type) {
@@ -133,6 +195,10 @@
       }
     }
 
+    // Start at the top level, add one final __t(0, ...) at the very end so
+    // the visualizer can show the final state, then apply all the edits.
+    // Sorting them from the end of the code backwards means each insertion
+    // doesn't shift the positions of the ones still to come.
     const top = { names: [], fn: false };
     collectVars(ast, top.names);
     lexNames(ast.body).forEach((n) => top.names.push(n));
@@ -146,15 +212,32 @@
   }
 
   /* ================================================ Line explainer */
+  // ================ PART 2: LINE EXPLAINER ================
+  // esc() makes text safe to show as HTML (see app.js); c() shows a piece of
+  // code in code style. KW lists keywords that are never function names.
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const c = (s) => '<code>' + esc(s) + '</code>';
   const KW = /^(if|for|while|switch|return|else|catch|sizeof|foreach|elif|until|do|try|using|lock|when|match|loop)$/;
 
+  // isComment() recognises comment lines in most languages (//, /*, #, --,
+  // <!--) so they can be skipped. C's #include lines are not comments.
   function isComment(s) {
     return /^(\/\/|\/\*|\*\/|\*(\s|$)|#(?![a-z]+\s*[<"])|--|<!--|=begin|=end)/.test(s) && !/^#(include|define|if|endif|else|pragma|import)/.test(s);
   }
 
   /** Returns {text, decl:{name,init}} or null (null = blank/comment, skip). */
+  // explainLine() describes one line of code in plain English. It cleans
+  // the line, then tries a long series of patterns in order, from most
+  // specific to most general. The first pattern that matches wins:
+  //  * closing brackets and "end" (end of a block)
+  //  * SQL keywords, #include / import lines, package declarations
+  //  * function and class definitions in each language's style
+  //  * if / else / loops / switch / try / return / break
+  //  * printing (print, console.log, printf, cout...)
+  //  * creating variables and assigning new values
+  //  * calling a function
+  // For declarations it also returns "decl" (the variable's name and
+  // starting value) so explain mode can list variables declared so far.
   function explainLine(lang, raw) {
     let s = raw.trim();
     if (!s || isComment(s)) return null;
@@ -184,6 +267,8 @@
       return { text: 'Imports/declares ' + c((m[2] || s).replace(/;$/, '')) + ' so this file can use code from elsewhere.' };
 
     // function definitions
+    // Function definition patterns for Python, JavaScript, Lua, Rust, Go and
+    // PHP. The C style pattern (type name(params)) comes right after.
     const fnPatterns = [
       /^(?:async\s+)?def\s+(\w+[?!]?)\s*\(?([^)]*)\)?/,
       /^(?:export\s+)?(?:async\s+)?function\s*\*?\s*(\w+)\s*\(([^)]*)\)/,
@@ -235,6 +320,8 @@
       return { text: 'Prints output to the terminal: ' + c(s) + '.' };
 
     // declarations / assignments
+    // Variable declarations in their many forms: let / const / var, Go's :=,
+    // typed C style "int x = 5", PHP's $x = 5 and Python's x = 5.
     let decl = null;
     if ((m = /^(?:export\s+)?(let\s+mut|let|const|var|val|local|auto|final|my|our|dim)\s+(\w+)\s*(?::\s*[^=]+)?(?:=\s*(.+))?$/.exec(s))) decl = { name: m[2], init: m[3] };
     else if ((m = /^(\w+(?:\s*,\s*\w+)*)\s*:=\s*(.+)$/.exec(s))) decl = { name: m[1].replace(/\s+/g, ''), init: m[2] };
@@ -255,6 +342,9 @@
     if ((m = /^([\w$.:>\-]+)\s*\(/.exec(s))) return { text: 'Calls ' + c(m[1] + '(…)') + ': jumps into that function, runs it, then comes back here.' };
     return { text: 'Runs ' + c(s.length > 60 ? s.slice(0, 57) + '…' : s) + '.' };
   }
+  // Rust returns the last expression of a block automatically when it has
+  // no semicolon. isRustTailExpr() spots such lines (a line without ;
+  // followed by a closing brace) so they can be explained correctly.
   function isRustTailExpr(lines, i) {
     const t = lines[i].trim();
     if (!t || /[;{},]$/.test(t) || /^(\/\/|let |if |else|for |while |loop|match |fn |#\[|struct |enum |impl |use |pub |mod )/.test(t)) return false;
@@ -263,6 +353,10 @@
   }
 
   /** For languages we cannot execute step-by-step: walk the source top-to-bottom explaining each line. */
+  // explainAll() is used by EXPLAIN MODE for compiled languages (which run
+  // on a remote server, so they can't be recorded line by line). It walks
+  // the code top to bottom, explains each line, and keeps a running list of
+  // the variables declared so far. It does not follow loops or calls.
   function explainAll(lang, code) {
     const lines = code.split('\n');
     const steps = [];
@@ -279,6 +373,10 @@
   }
 
   /* ================================================ HTML scanner */
+  // ================ PART 3: HTML SCANNER ================
+  // VOID lists "void" elements: HTML elements that never have a closing
+  // tag, like <br> and <img>. TAGINFO gives a short description of common
+  // tags, shown by the visualizer.
   const VOID = { area: 1, base: 1, br: 1, col: 1, embed: 1, hr: 1, img: 1, input: 1, link: 1, meta: 1, source: 1, track: 1, wbr: 1 };
   const TAGINFO = {
     html: 'The root of the whole page — everything lives inside it.', head: 'Information <i>about</i> the page (title, styles, scripts). Not shown directly.',
@@ -294,6 +392,15 @@
     strong: 'Important text (usually bold).', em: 'Emphasised text (usually italic).', br: 'A line break.', hr: 'A horizontal rule (divider).', canvas: 'A drawing surface controlled by JavaScript.',
     select: 'A drop-down list.', option: 'One choice inside a drop-down.', textarea: 'A multi-line text field.', code: 'A snippet of code.', pre: 'Preformatted text — whitespace is preserved.'
   };
+  // scanHtml() reads HTML code and lists every opening tag in order with
+  // its line number and nesting depth (how many elements it sits inside).
+  //  * Comments are blanked out first (keeping line breaks so line numbers
+  //    stay right).
+  //  * A "stack" (a list where the last item added is the first removed)
+  //    tracks which elements are open, to know the depth.
+  //  * Inside <style>, each CSS rule is listed too.
+  //  * The text inside <script> and <style> is skipped, so code there is
+  //    never mistaken for tags.
   function scanHtml(code) {
     const steps = [];
     const blank = code.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
@@ -329,5 +436,6 @@
     return steps;
   }
 
+  // Share these tools with the other files as window.Trace.
   window.Trace = { instrumentJS, explainLine, explainAll, scanHtml, esc };
 })();

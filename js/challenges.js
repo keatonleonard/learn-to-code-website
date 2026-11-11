@@ -1,5 +1,31 @@
+// ================================================================
+//  challenges.js: the self checking exercises (the Challenges tab)
+// ================================================================
+//  This file is DATA: a list of exercises. app.js shows them and checks
+//  your answers. Each challenge has:
+//    id      a short unique name
+//    title   the heading on its card
+//    level   beginner, intermediate or advanced
+//    desc    the task, written in HTML (<code> shows code style)
+//    type    how the answer is checked:
+//              'stdout'  compare what your program printed with "expected"
+//              'sqlCell' the first value of your last query must equal "value"
+//              'sqlRows' your last query must return exactly these "rows"
+//              'html'    run the "check" function on your page
+//    hint    shown when you press Hint
+//    starter (optional) code the challenge starts with
+//
+//  KEY WORDS:
+//  * stdout ("standard output"): the text a program prints.
+//  * Object: named values grouped in { }. Array: a list in [ ].
+// ================================================================
 /* Self-checking challenges. "common" ones work for any language that prints to stdout. */
+// window.CHALLENGES is shared with the other files. It has three lists.
 window.CHALLENGES = {
+  // COMMON challenges: used by every language that prints text. They only
+  // check the printed output, so the same exercise works in any language.
+  // "\n" inside text means "new line". Array.from({ length: 10 }, ...) builds
+  // the times table answer with code instead of typing out 10 lines.
   common: [
     { id: 'hello', title: 'Hello, World!', level: 'beginner', desc: 'Print exactly <code>Hello, World!</code> to the terminal.', type: 'stdout', expected: 'Hello, World!', hint: 'Look at the very first section of the Syntax guide — it shows how to print.' },
     { id: 'count', title: 'Count to five', level: 'beginner', desc: 'Print the numbers 1 to 5, each on its own line. Use a loop rather than five print statements!', type: 'stdout', expected: '1\n2\n3\n4\n5', hint: 'A for-loop that starts at 1 and stops after 5. See the “Loops” section.' },
@@ -13,12 +39,18 @@ window.CHALLENGES = {
     { id: 'fact', title: 'Factorial function', level: 'advanced', desc: 'Write a <b>function</b> <code>factorial(n)</code> that returns n! (1 × 2 × … × n). Print <code>factorial(10)</code>.', type: 'stdout', expected: '3628800', hint: 'Recursive version: factorial(n) = n * factorial(n - 1), with factorial(1) = 1. Or loop and multiply.' },
     { id: 'primes', title: 'Prime numbers', level: 'advanced', desc: 'Print every prime number below 30 on one line, separated by spaces.', type: 'stdout', expected: '2 3 5 7 11 13 17 19 23 29', hint: 'Write a helper <code>isPrime(n)</code> that tries dividing n by every number from 2 up to √n.' }
   ],
+  // SQL challenges: checked against the result of your LAST query.
   sql: [
     { id: 'sql-sum', title: 'Total points', level: 'beginner', desc: 'Create a table <code>scores</code> with an integer column <code>points</code>, insert the values 10, 20 and 30, and finish with a <code>SELECT</code> that returns their total.', type: 'sqlCell', value: 60, hint: 'Use the aggregate function <code>SUM(points)</code>.' },
     { id: 'sql-adults', title: 'Adults only', level: 'beginner', desc: 'The starter creates a <code>people</code> table. Write a query returning only the <code>name</code> of people aged 18 or older, sorted alphabetically.', type: 'sqlRows', rows: [['Ana'], ['Ben'], ['Zoe']], starter: "CREATE TABLE people (name TEXT, age INTEGER);\nINSERT INTO people VALUES ('Zoe', 31), ('Max', 12), ('Ana', 18), ('Ben', 45), ('Kim', 17);\n\n-- Your query here:\n", hint: '<code>SELECT name FROM people WHERE age &gt;= 18 ORDER BY name;</code> — try writing it yourself first!' },
     { id: 'sql-group', title: 'Students per city', level: 'intermediate', desc: 'Count how many students live in each city. Return two columns (city, count) ordered by city.', type: 'sqlRows', rows: [['Lima', '2'], ['Oslo', '1'], ['Pune', '3']], starter: "CREATE TABLE students (name TEXT, city TEXT);\nINSERT INTO students VALUES ('Ari','Pune'),('Bo','Lima'),('Cy','Pune'),('Di','Oslo'),('Ed','Lima'),('Fe','Pune');\n\n-- Your query here:\n", hint: 'Use <code>GROUP BY city</code> together with <code>COUNT(*)</code>.' },
     { id: 'sql-join', title: 'Join two tables', level: 'advanced', desc: 'List each order\'s <code>id</code> with the <code>name</code> of the customer who placed it, ordered by order id.', type: 'sqlRows', rows: [['1', 'Ada'], ['2', 'Linus'], ['3', 'Ada']], starter: "CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT);\nCREATE TABLE orders (id INTEGER PRIMARY KEY, customer_id INTEGER);\nINSERT INTO customers VALUES (1, 'Ada'), (2, 'Linus');\nINSERT INTO orders VALUES (1, 1), (2, 2), (3, 1);\n\n-- Your query here:\n", hint: '<code>SELECT orders.id, customers.name FROM orders JOIN customers ON …</code>' }
   ],
+  // HTML challenges: each "check" is a function that looks at your page
+  // (already read into a "doc" object by app.js, WITHOUT running it) and
+  // returns true when it passes, or a message explaining what's missing.
+  // querySelector('h1') finds the first <h1>; querySelectorAll finds all.
+  // ":scope > li" means "<li> elements directly inside this element".
   html: [
     { id: 'html-list', title: 'Heading and a list', level: 'beginner', desc: 'Make a page with an <code>&lt;h1&gt;</code> containing the word <b>Hello</b>, and an unordered list with exactly three items.', type: 'html', check: (doc) => { const h = doc.querySelector('h1'); const ul = doc.querySelector('ul'); if (!h || !/hello/i.test(h.textContent)) return 'I couldn\'t find an <h1> containing "Hello".'; if (!ul) return 'I couldn\'t find a <ul>.'; const n = ul.querySelectorAll(':scope > li').length; return n === 3 ? true : 'Your list has ' + n + ' items — it needs exactly 3.'; }, hint: 'Lists look like <code>&lt;ul&gt;&lt;li&gt;One&lt;/li&gt;…&lt;/ul&gt;</code>.' },
     { id: 'html-media', title: 'Link and image', level: 'beginner', desc: 'Add a link (<code>&lt;a&gt;</code> with an <code>href</code>) and an image (<code>&lt;img&gt;</code>) that has descriptive <code>alt</code> text.', type: 'html', check: (doc) => { const a = doc.querySelector('a[href]'); const img = doc.querySelector('img'); if (!a) return 'No <a> with an href attribute found.'; if (!img) return 'No <img> found.'; return img.getAttribute('alt') && img.getAttribute('alt').trim() ? true : 'Your image needs non-empty alt text.'; }, hint: '<code>&lt;img src="https://picsum.photos/200" alt="A random photo"&gt;</code>' },

@@ -1,9 +1,32 @@
+// ================================================================
+//  js/langs/scripting.js: content for Python, Lua, Ruby and PHP
+// ================================================================
+//  This file holds DATA, not behaviour: each language's starter program,
+//  syntax guide lessons, tips and settings. The other JavaScript files
+//  (app.js, engines.js...) read this data to build the screens.
+//
+//  Every language object has the same fields; js/langs/web.js explains
+//  each field in detail at the top of that file.
+// ================================================================
 /* Python, Lua, Ruby, PHP */
+// window.LANGS is the shared list of languages that every language file
+// adds to. "|| []" means: if no earlier file has created the list yet,
+// start an empty one. (window is the browser's shared "global" object.)
 window.LANGS = window.LANGS || [];
+// IIFE wrapper: a function that runs immediately, keeping helper names
+// like R private to this file (see app.js for more on this).
 (function () {
+  // R is a shortcut for String.raw. Code examples are written between
+  // backticks ` ` (a "template literal", JavaScript text that can span
+  // many lines). String.raw keeps every backslash exactly as typed, so
+  // code like printf("\n") stays correct instead of \n turning into a
+  // real line break. No // comments can go INSIDE these examples, because
+  // they would become part of the example code itself.
   const R = String.raw;
 
   /* ===================================================================== Python */
+  // PYTHON
+  // Runs real Python in your browser using Pyodide, with the live trace.
   LANGS.push({
     id: 'python', name: 'Python', aka: 'py', tag: 'Py', color: '#3776ab', file: 'main.py', cmd: 'python3 main.py',
     kind: 'browser', engine: 'py', trace: 'trace', mode: 'python', indent: 4, comment: ['#'],
@@ -12,6 +35,7 @@ window.LANGS = window.LANGS || [];
     intro: 'Python reads almost like English and uses **indentation** (4 spaces) instead of braces to group code. It is dynamically typed and comes with a huge standard library. This page runs real CPython 3.12 in your browser (via Pyodide). The first run downloads the runtime, so it takes a few seconds.',
     docs: 'https://docs.python.org/3/tutorial/',
     keywords: ['def', 'return', 'if', 'elif', 'else', 'for', 'while', 'in', 'not', 'and', 'or', 'is', 'None', 'True', 'False', 'class', 'self', 'import', 'from', 'as', 'try', 'except', 'finally', 'raise', 'with', 'lambda', 'yield', 'pass', 'break', 'continue', 'print', 'input', 'range', 'len', 'list', 'dict', 'set', 'tuple', 'str', 'int', 'float', 'bool', 'enumerate', 'zip', 'sorted', 'sum', 'min', 'max', 'append', 'items', 'keys', 'values', 'format', 'isinstance'],
+    // The starter program shown the first time you open Python.
     starter: R`# Welcome to Python! Press ▶ Run (or Ctrl+Enter).
 # Tip: open the 👁 Visualizer to watch each line run.
 
@@ -31,6 +55,7 @@ for name, marks in scores.items():
 squares = [x * x for x in range(1, 6)]
 print("Squares:", squares)
 `,
+    // Python syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & print', level: 'beginner',
         body: "`print()` shows values in the terminal. Give it several values separated by commas and it puts spaces between them. Text (a **string**) goes inside quotes.\n\nEverything after `#` on a line is a **comment** — a note for humans that Python ignores.",
@@ -330,6 +355,7 @@ if __name__ == "__main__":
     print("Run directly (not imported)")`,
         deep: "Structure projects as packages with `pyproject.toml`, isolate dependencies in virtual environments (`python -m venv .venv`), format with Black/Ruff and type-check with mypy or pyright. The `if __name__ == '__main__':` guard keeps script code from running on import." }
     ],
+    // Python best practices (the "Best practices" tab).
     tips: [
       'Follow **PEP 8**: 4-space indentation, `snake_case` for variables and functions, `PascalCase` for classes, `UPPER_CASE` for constants.',
       'Use f-strings for formatting: `f"{name} is {age}"`.',
@@ -340,6 +366,7 @@ if __name__ == "__main__":
       'Never use a mutable default argument (`def f(x=[])`); use `None` instead.',
       'Add type hints and docstrings to public functions; run a linter/formatter such as Ruff and Black.'
     ],
+    // Common Python beginner mistakes.
     pitfalls: [
       'Mixing tabs and spaces, or inconsistent indentation inside a block.',
       'Forgetting the colon `:` after `if`, `for`, `while`, `def` and `class`.',
@@ -350,6 +377,9 @@ if __name__ == "__main__":
   });
 
   /* ===================================================================== Lua */
+  // LUA
+  // Runs in your browser using Fengari (Lua written in JavaScript), with
+  // the live trace.
   LANGS.push({
     id: 'lua', name: 'Lua', tag: 'Lua', color: '#2c2d72', file: 'main.lua', cmd: 'lua main.lua',
     kind: 'browser', engine: 'lua', trace: 'trace', mode: 'lua', indent: 2, comment: ['--'],
@@ -358,6 +388,7 @@ if __name__ == "__main__":
     intro: 'Lua is a tiny, elegant scripting language designed to be embedded in other programs, which is why it\'s everywhere in games (Roblox uses a Lua dialect). It has one data structure, the **table**, that acts as array, dictionary and object. This page runs Lua 5.3 (Fengari) in your browser.',
     docs: 'https://www.lua.org/manual/5.3/',
     keywords: ['local', 'function', 'end', 'if', 'then', 'elseif', 'else', 'for', 'in', 'do', 'while', 'repeat', 'until', 'return', 'break', 'nil', 'true', 'false', 'and', 'or', 'not', 'print', 'pairs', 'ipairs', 'table', 'insert', 'remove', 'concat', 'string', 'format', 'tostring', 'tonumber', 'type', 'math', 'floor', 'random', 'pcall', 'error', 'setmetatable', 'self'],
+    // The starter program shown the first time you open Lua.
     starter: R`-- Welcome to Lua! Press ▶ Run (or Ctrl+Enter).
 -- Tip: open the 👁 Visualizer to watch each line run.
 
@@ -382,6 +413,7 @@ print("5! =", factorial(5))
 print("Total fruit: " .. total)
 print("Third prime: " .. primes[3] .. ", how many: " .. #primes)
 `,
+    // Lua syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & comments', level: 'beginner',
         body: "`print()` writes values to the terminal, separated by tabs. `--` starts a comment; `--[[ ... ]]` comments out several lines.\n\nSemicolons are optional in Lua, and line breaks don't matter much — blocks are closed with the keyword `end`.",
@@ -619,6 +651,7 @@ end)
 print(gen(), gen(), gen())`,
         deep: "Coroutines are cooperative: only one runs at a time and they switch only at `yield`. `coroutine.wrap` returns a plain function, which makes building custom iterators for the generic `for` easy." }
     ],
+    // Lua best practices (the "Best practices" tab).
     tips: [
       'Always declare variables with `local`. Accidental globals are the #1 Lua bug.',
       'Remember arrays start at 1, and use `ipairs` for arrays and `pairs` for dictionaries.',
@@ -628,6 +661,7 @@ print(gen(), gen(), gen())`,
       'Return a table from a file to create a module: `local M = {} ... return M`.',
       'Use `:` for method calls on objects so `self` is passed automatically.'
     ],
+    // Common Lua beginner mistakes.
     pitfalls: [
       'Writing `!=` instead of `~=`.',
       'Forgetting `then`, `do` or `end`.',
@@ -638,6 +672,9 @@ print(gen(), gen(), gen())`,
   });
 
   /* ===================================================================== Ruby */
+  // RUBY
+  // Runs on the Wandbox online compiler (prefers the official "ruby"
+  // versions over mruby) and uses the visualizer's explain mode.
   LANGS.push({
     id: 'ruby', name: 'Ruby', tag: 'Rb', color: '#cc342d', file: 'main.rb', cmd: 'ruby main.rb',
     kind: 'cloud', engine: 'wandbox', wb: { lang: 'Ruby', prefer: /^ruby-/ }, trace: 'explain', mode: 'ruby', indent: 2, comment: ['#'],
@@ -646,6 +683,7 @@ print(gen(), gen(), gen())`,
     intro: 'Ruby is a dynamic, fully object-oriented language (everything, even `5`, is an object) focused on readability and developer happiness. Blocks and iterators make collection processing expressive. Code is run on the Wandbox online service.',
     docs: 'https://www.ruby-lang.org/en/documentation/',
     keywords: ['def', 'end', 'if', 'elsif', 'else', 'unless', 'case', 'when', 'while', 'until', 'for', 'in', 'do', 'each', 'map', 'select', 'reject', 'reduce', 'times', 'puts', 'print', 'class', 'module', 'attr_accessor', 'attr_reader', 'initialize', 'self', 'return', 'yield', 'begin', 'rescue', 'ensure', 'raise', 'nil', 'true', 'false', 'require', 'length', 'include?', 'to_s', 'to_i'],
+    // The starter program shown the first time you open Ruby.
     starter: R`# Welcome to Ruby! Press ▶ Run (or Ctrl+Enter).
 # Ruby is run on the free Wandbox service (needs internet).
 
@@ -667,6 +705,7 @@ puts "Sorted: #{numbers.sort.inspect}"
 puts "Evens: #{evens}, odds: #{odds}"
 puts "Sum of squares: #{numbers.sum { |n| n * n }}"
 `,
+    // Ruby syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & output', level: 'beginner',
         body: "`puts` prints a value followed by a newline; `print` doesn't add the newline; `p` prints a debug-friendly version (strings keep their quotes). Comments start with `#`.\n\nParentheses on method calls are optional: `puts(\"hi\")` and `puts \"hi\"` are the same.",
@@ -892,6 +931,7 @@ p [1, 2, 3].zip([:a, :b, :c]).to_h
 p (1..10).each_slice(3).map(&:sum)`,
         deep: "`lazy` turns an enumerator chain into a pipeline that only computes what's needed. `_1` and `it` (Ruby 3.4) are implicit block parameters. Prefer these declarative methods over manual loops with accumulators." }
     ],
+    // Ruby best practices (the "Best practices" tab).
     tips: [
       'Use 2-space indentation and `snake_case` for methods and variables, `CamelCase` for classes and modules.',
       'Prefer iterators (`each`, `map`, `select`) over `for` loops.',
@@ -901,6 +941,7 @@ p (1..10).each_slice(3).map(&:sum)`,
       'Use guard clauses (`return unless valid?`) to avoid deep nesting.',
       'Add `# frozen_string_literal: true` and use RuboCop to keep style consistent.'
     ],
+    // Common Ruby beginner mistakes.
     pitfalls: [
       'Forgetting `end` to close `def`, `if`, `do`, `class`.',
       'Using single quotes and expecting `#{}` interpolation to work.',
@@ -911,6 +952,10 @@ p (1..10).each_slice(3).map(&:sum)`,
   });
 
   /* ===================================================================== PHP */
+  // PHP
+  // Runs on Wandbox. Guide examples are short snippets, so "wrap" adds the
+  // <?php opening tag before running them. snippetMode colours examples
+  // as pure PHP.
   LANGS.push({
     id: 'php', name: 'PHP', tag: 'PHP', color: '#777bb4', file: 'index.php', cmd: 'php index.php',
     kind: 'cloud', engine: 'wandbox', wb: { lang: 'PHP' }, trace: 'explain', mode: 'application/x-httpd-php', snippetMode: 'text/x-php', indent: 4, comment: ['//'],
@@ -920,6 +965,7 @@ p (1..10).each_slice(3).map(&:sum)`,
     intro: 'PHP runs on web servers to generate pages and APIs. Modern PHP (8.x) has types, classes, enums and fast performance. Code goes between `<?php` and (optionally) `?>`; every variable starts with `$`. Code is run on the Wandbox online service.',
     docs: 'https://www.php.net/manual/en/',
     keywords: ['echo', 'print', 'function', 'return', 'if', 'elseif', 'else', 'foreach', 'for', 'while', 'as', 'array', 'class', 'public', 'private', 'protected', 'static', 'new', 'extends', 'implements', 'interface', 'try', 'catch', 'throw', 'match', 'fn', 'null', 'true', 'false', 'count', 'strlen', 'implode', 'explode', 'array_map', 'array_filter', 'printf', 'sprintf', 'isset', 'empty', 'var_dump', 'print_r', 'PHP_EOL'],
+    // The starter program shown the first time you open PHP.
     starter: R`<?php
 // Welcome to PHP! Press ▶ Run (or Ctrl+Enter).
 // PHP is run on the free Wandbox service (needs internet).
@@ -941,6 +987,7 @@ foreach ($scores as $name => $marks) {
 $squares = array_map(fn($x) => $x * $x, range(1, 5));
 echo "Squares: " . implode(', ', $squares) . PHP_EOL;
 `,
+    // PHP syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Hello, World & echo', level: 'beginner',
         body: "PHP code lives between `<?php` and `?>` (the closing tag is usually omitted in pure-PHP files). `echo` outputs text; statements end with a semicolon `;`.\n\nComments use `//`, `#` or `/* ... */`.",
@@ -1160,6 +1207,7 @@ $upper = strtoupper(...);              // first-class callable
 echo implode(",", array_map($upper, ["a", "b"])), PHP_EOL;`,
         deep: "Use Composer for dependencies and PSR-4 autoloading, follow the PSR-12 coding style, and run static analysis (PHPStan or Psalm) to catch type errors before production." }
     ],
+    // PHP best practices (the "Best practices" tab).
     tips: [
       'Start files with `declare(strict_types=1);` and type every parameter, property and return value.',
       'Always compare with `===` and `!==`.',
@@ -1169,6 +1217,7 @@ echo implode(",", array_map($upper, ["a", "b"])), PHP_EOL;`,
       'Use `match`, null-coalescing `??` and constructor promotion to keep code short and clear.',
       'Manage dependencies with Composer and analyse code with PHPStan.'
     ],
+    // Common PHP beginner mistakes.
     pitfalls: [
       'Forgetting the `$` in front of a variable name.',
       'Forgetting the semicolon at the end of a statement.',

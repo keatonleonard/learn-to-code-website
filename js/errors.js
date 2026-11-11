@@ -1,7 +1,33 @@
+// ================================================================
+//  errors.js: friendly explanations for error messages
+// ================================================================
+//  When a program fails, the computer prints an error message that is
+//  often hard for beginners to understand. This file holds a list of
+//  common messages for each language, each paired with a plain English
+//  explanation (the "What this means" box in the terminal).
+//
+//  KEY WORDS used in this file:
+//  * Regular expression (regex): a pattern for matching text, written
+//    between slashes. Examples of pattern symbols used below:
+//      (\w+)  captures a word, like a variable's name
+//      (.+)   captures any text
+//      |      means "or"
+//    The parts in ( ) are "captured" so they can be reused in the
+//    explanation as $1, $2... (the 1st, 2nd... captured part).
+//  * Syntax error: a mistake in the code's grammar, like a missing bracket.
+//  * Runtime error: a mistake found while the program is running, like
+//    dividing by zero.
+// ================================================================
 /* Plain-English explanations for common error messages. */
+// IIFE wrapper: keeps every name in this file private (see app.js).
 (function () {
   'use strict';
+  // H ("hints") maps each language id to a list of [pattern, explanation]
+  // pairs. The ORDER matters: the first pattern that matches is used, so
+  // more specific patterns are listed before general ones.
   const H = {
+    // JavaScript errors: undefined names, calling non functions, reading from
+    // undefined/null, reassigning const, bracket mistakes, endless recursion.
     javascript: [
       [/(\w+) is not defined/, 'JavaScript doesn\'t know the name <code>$1</code>. Check the spelling (capital letters matter), or make sure you created it with <code>let</code> or <code>const</code> <i>before</i> using it.'],
       [/(.+) is not a function/, 'You tried to call <code>$1</code> like a function, but it isn\'t one. Check the name for typos and that you aren\'t calling a number, string or <code>undefined</code> by mistake.'],
@@ -16,6 +42,8 @@
       [/await/i, '<code>await</code> can only be used inside an <code>async</code> function. Wrap the code: <code>async function main() { … } main();</code>'],
       [/Timeout/, 'Your program ran too long and was stopped. Look for a loop whose condition never becomes false.']
     ],
+    // Python errors: NameError, indentation, missing colons, mixing text and
+    // numbers, index/key errors, missing modules, input() with no input.
     python: [
       [/NameError: name '(\w+)' is not defined/, 'Python doesn\'t know the name <code>$1</code>. Check spelling (case matters) and that you assigned it <i>before</i> using it. Strings need quotes: <code>"$1"</code>.'],
       [/IndentationError: expected an indented block/, 'After a line ending in <code>:</code> (like <code>if</code>, <code>for</code>, <code>def</code>) the next line must be indented (4 spaces).'],
@@ -37,6 +65,7 @@
       [/EOFError/, 'The program called <code>input()</code> but there was no input. Type some lines in the <b>Program input</b> box under the terminal (one per <code>input()</code> call).'],
       [/Timeout/, 'Your program ran too long and was stopped. Look for a <code>while</code> loop whose condition never becomes false.']
     ],
+    // Lua errors: calling or indexing nil, maths on nil, missing "end", != vs ~=.
     lua: [
       [/attempt to call a nil value \((global|field|method|local) '?(\w+)'?\)/, 'You called <code>$2</code> as a function, but it is <code>nil</code> (doesn\'t exist). Check the spelling or define the function before calling it.'],
       [/attempt to index a nil value/, 'You used <code>.</code> or <code>[]</code> on something that is <code>nil</code>. The table/variable on the left doesn\'t exist — print it to check.'],
@@ -47,6 +76,7 @@
       [/'end' expected|<eof> expected near/, 'Every <code>if</code>, <code>for</code>, <code>while</code> and <code>function</code> needs its own matching <code>end</code>.'],
       [/Timeout/, 'Your program ran too long and was stopped. Look for a loop that never ends.']
     ],
+    // SQL errors: missing tables or columns, syntax errors, constraint failures.
     sql: [
       [/no such table: (\w+)/, 'There is no table named <code>$1</code>. Create it first with <code>CREATE TABLE</code>, or check the spelling.'],
       [/no such column: ([\w.]+)/, 'The column <code>$1</code> doesn\'t exist in that table. Check the column names (and that you spelled string values with quotes).'],
@@ -58,11 +88,16 @@
       [/ambiguous column name: (\w+)/, 'More than one table has a column <code>$1</code>. Prefix it with the table name, like <code>students.$1</code>.'],
       [/FOREIGN KEY constraint/, 'A foreign key points at a row that doesn\'t exist.']
     ],
+    // HTML page errors (from the page's scripts). The JavaScript hints are
+    // also added to this list just after the H object (see H.html.push).
     html: [
       [/Unexpected token|SyntaxError/, 'The JavaScript inside your page has a typo. Check quotes and brackets near the reported line.'],
       [/is not defined/, 'The script used a name that doesn\'t exist. Check spelling, or make sure the script runs after the element it needs (put <code>&lt;script&gt;</code> at the end of <code>&lt;body&gt;</code>).'],
       [/Cannot read propert/, 'The script tried to use an element that wasn\'t found (e.g. a wrong <code>id</code>). Make sure <code>getElementById("…")</code> matches an <code>id</code> in your HTML.']
     ],
+    // C errors (from the GCC compiler): missing semicolons, undeclared names,
+    // missing #include lines, and crashes such as segmentation faults (using
+    // memory the program doesn't own).
     c: [
       [/expected (?:['‘`]?,['’`]? or )?['‘`]?;['’`]? (before|after)/, 'A semicolon <code>;</code> is missing at the end of a statement — usually on the line <i>above</i> the one reported.'],
       [/['‘`](\w+)['’`] undeclared|use of undeclared identifier ['‘`](\w+)/, 'The name <code>$1$2</code> hasn\'t been declared. Declare the variable with its type first (e.g. <code>int x;</code>), check spelling, or <code>#include</code> the right header.'],
@@ -74,6 +109,7 @@
       [/expected declaration or statement|expected expression|expected ['‘`]\)['’`]/, 'The compiler found something that doesn\'t fit the grammar. Look for unbalanced <code>()</code> / <code>{}</code> or a typo on this line or just above.'],
       [/Aborted|SIGABRT|double free|free\(\)/, 'The program aborted, often because of invalid memory use such as freeing memory twice.']
     ],
+    // C++ errors: missing std::, operator mistakes, uncaught exceptions.
     cpp: [
       [/was not declared in this scope|not declared|undeclared identifier/, 'The compiler doesn\'t know this name. Declare it first, check spelling, and make sure you <code>#include</code> the right header (e.g. <code>&lt;vector&gt;</code>, <code>&lt;string&gt;</code>) and use <code>std::</code> or <code>using namespace std;</code>.'],
       [/expected (?:['‘`]?,['’`]? or )?['‘`]?;['’`]? (before|after)/, 'A semicolon <code>;</code> is missing — usually on the line <i>above</i> the one reported.'],
@@ -84,6 +120,8 @@
       [/terminate called after throwing an instance of ['‘`]?([\w:]+)/, 'An exception of type <code>$1</code> was thrown and nothing caught it. Wrap the risky code in <code>try { } catch (…) { }</code>.'],
       [/invalid conversion from/, 'You assigned a value of one type to a variable of an incompatible type. Convert it explicitly or use the right type.']
     ],
+    // Java errors: cannot find symbol, type mismatches, NullPointerException
+    // and other common exceptions.
     java: [
       [/cannot find symbol/, 'Java doesn\'t recognise a name. Check spelling and capitalisation (Java is case-sensitive), that the variable is declared in scope, and that you <code>import</code> the class (e.g. <code>java.util.*</code>).'],
       [/['‘`]?;['’`]? expected/, 'A semicolon <code>;</code> is missing, usually at the end of the line above.'],
@@ -100,6 +138,7 @@
       [/unreported exception/, 'This code can throw a checked exception. Handle it with <code>try/catch</code> or declare <code>throws</code>.'],
       [/might not have been initialized/, 'You read a local variable before giving it a value.']
     ],
+    // C# errors: compiler codes like CS1002 (missing ;) plus common exceptions.
     csharp: [
       [/CS1002|; expected/, 'A semicolon <code>;</code> is missing (look at the end of the line above).'],
       [/CS0103|does not exist in the current context/, 'That name doesn\'t exist here. Check spelling/capitalisation, that it is declared in scope, and the <code>using</code> directives at the top.'],
@@ -113,6 +152,8 @@
       [/FormatException/, 'The text isn\'t in the right format for that conversion.'],
       [/InvalidCastException/, 'You cast an object to a type it isn\'t.']
     ],
+    // Rust errors: ownership / borrowing rules, immutable variables, type
+    // mismatches and panics (deliberate crashes on bugs).
     rust: [
       [/E0382|borrow of moved value|use of moved value/, 'Rust\'s <b>ownership</b> rule: a value can have only one owner, and passing it by value <i>moves</i> it. Borrow it with <code>&amp;value</code> or make a copy with <code>.clone()</code>.'],
       [/E0384|cannot assign twice to immutable variable/, 'Variables are immutable by default in Rust. Declare it with <code>let mut</code> if it needs to change.'],
@@ -124,6 +165,8 @@
       [/panicked at/, 'The program <b>panicked</b> (a deliberate crash on a bug such as an out-of-range index, <code>unwrap()</code> on <code>None</code>, or overflow). The message shows where.'],
       [/expected [`'‘]?;/, 'A semicolon is missing at the end of a statement.']
     ],
+    // Go errors: unused variables and imports (which Go refuses to compile),
+    // undefined names, type mismatches, deadlocks.
     go: [
       [/declared (and|but) not used|declared and not used/, 'Go refuses to compile if a variable is declared but never used. Use it, or replace it with <code>_</code>.'],
       [/imported and not used/, 'Remove the unused <code>import</code> (or use the package).'],
@@ -136,6 +179,7 @@
       [/nil pointer dereference/, 'You used a pointer that is <code>nil</code>.'],
       [/all goroutines are asleep - deadlock/, 'Every goroutine is waiting on a channel/lock that nothing will ever release.']
     ],
+    // Ruby errors: undefined names and methods, missing "end", type mixes.
     ruby: [
       [/undefined local variable or method [`'‘](\w+)/, 'Ruby doesn\'t know <code>$1</code>: misspelled, or not assigned yet.'],
       [/undefined method [`'‘](\w+)['’] for (nil|an instance of \w+|.+)/, 'You called <code>.$1</code> on <code>$2</code>, which doesn\'t have that method. If it says <code>nil</code>, something earlier returned nothing.'],
@@ -146,6 +190,7 @@
       [/ArgumentError: wrong number of arguments/, 'You called a method with the wrong number of arguments.'],
       [/uninitialized constant (\w+)/, 'A class/constant named <code>$1</code> doesn\'t exist (capitalised names are constants).']
     ],
+    // PHP errors: parse errors, undefined variables and functions.
     php: [
       [/Parse error: syntax error, unexpected/, 'PHP can\'t parse the code: usually a missing semicolon <code>;</code>, an unclosed bracket/quote, or a missing <code>$</code> before a variable.'],
       [/Undefined variable [\$]?(\w+)/, 'The variable <code>$$1</code> was used before it was assigned. Variables always start with <code>$</code>.'],
@@ -156,8 +201,16 @@
       [/Undefined (index|array key)/, 'You read an array key that doesn\'t exist. Check with <code>isset($arr[\'key\'])</code> first.']
     ]
   };
+  // Web pages use JavaScript, so HTML gets the JavaScript hints too.
+  // "...H.javascript" (the "spread" syntax) adds each item of the list.
   H.html.push(...H.javascript);
 
+  // explain() tries each pattern for the language against the error text
+  // and returns the explanation for the first match, filling in $1, $2...
+  // with the captured text. That captured text comes from the error message,
+  // which a program can control, so it is ESCAPED (&, <, >, " and ' are
+  // turned into safe codes) before going into the page. Returns null if
+  // nothing matches, and the terminal then shows a general tip instead.
   function explain(langId, text) {
     const list = (H[langId] || []).concat(langId === 'html' ? [] : []);
     for (const [re, tip] of list) {
@@ -167,5 +220,6 @@
     }
     return null;
   }
+  // Share explain() with the other files as window.Hints.
   window.Hints = { explain };
 })();

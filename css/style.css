@@ -1,3 +1,33 @@
+/* ================================================================
+    style.css: how every part of CodeLab LOOKS
+   ================================================================
+    CSS (Cascading Style Sheets) is a list of RULES. Each rule has:
+      a SELECTOR  (which elements to style), e.g. .btn or #toast
+      PROPERTIES  (what to change) and VALUES (what to change it to),
+      written inside { } like   color: red;
+    Selector cheat sheet:
+      .name      matches elements with class="name"
+      #name      matches the ONE element with id="name"
+      a b        matches b elements that sit inside a elements
+      a, b       the same rule for both a and b
+      :hover     a "pseudo class": only while the mouse is over it
+      ::before   a "pseudo element": an extra decorative piece CSS adds
+    Units: px = screen pixels; % = percent of the parent; vh / vw =
+      percent of the window's height / width.
+    "Cascading" means when several rules match one element, the more
+      specific rule (or the later one) wins.
+
+    THEME COLOURS. :root means "the whole page". The names starting with
+    two dashes are CUSTOM PROPERTIES (CSS variables): named values that
+    other rules reuse with var(name). Keeping every colour here means the
+    whole site can switch theme by changing just this list.
+      bg / panel = backgrounds, text / muted = text colours,
+      accent = highlight colour, danger / warn / ok = red / amber / green,
+      tk-... = colours for code "tokens" (keywords, strings, numbers...)
+      mono = fixed width font for code, sans = normal reading font,
+      fs = editor font size (changed by the A- / A+ buttons).
+   ================================================================
+   The rule right below is the DARK theme (the default). */
 :root {
   --bg: #0d1017; --panel: #141824; --panel2: #1a1f2e; --panel3: #222839; --border: #272d41;
   --text: #e7e9f1; --muted: #8b92a8; --accent: #7c9cff; --accent-ink: #0b1020; --accent2: #3ddc97;
@@ -9,6 +39,8 @@
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --fs: 14px; --radius: 10px; --shadow: 0 10px 30px rgba(0,0,0,.35);
 }
+/* LIGHT theme. JavaScript sets data-theme="light" on the page when you
+   click the theme button, and this rule then overrides the colours above. */
 :root[data-theme="light"] {
   --bg: #f3f5fa; --panel: #ffffff; --panel2: #f0f2f8; --panel3: #e6e9f2; --border: #dce0ec;
   --text: #1b2030; --muted: #5d6580; --accent: #3b5bdb; --accent-ink: #ffffff; --accent2: #0f9d6b;
@@ -18,25 +50,43 @@
   --tk-type: #a16207; --tk-op: #0369a1; --tk-tag: #be123c; --tk-attr: #7c3aed; --tk-prop: #0f766e;
   --shadow: 0 10px 30px rgba(30,40,80,.15);
 }
+/* BASIC PAGE SETUP
+   * matches every element. box-sizing: border-box makes an element's width
+   include its padding and border, which makes sizes much easier to predict. */
 * { box-sizing: border-box; }
+/* The page fills the whole window and never scrolls as a whole: each panel
+   scrolls on its own (overflow: hidden stops the page itself scrolling).
+   display: flex turns on FLEXBOX, a layout system that lines children up in
+   a row or (with flex-direction: column) a column. */
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 var(--sans); display: flex; flex-direction: column; overflow: hidden; }
 a { color: var(--accent); }
 button { font: inherit; color: inherit; cursor: pointer; }
 code, pre, kbd { font-family: var(--mono); }
+/* Anything with the hidden attribute is never shown. !important means "this
+   wins over any other rule", so nothing can accidentally reveal it. */
 [hidden] { display: none !important; }
+/* Thinner, rounded scrollbars in Chrome, Edge and Safari (the "webkit" family
+   of browsers). Firefox ignores these lines and uses its own scrollbars. */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--panel3); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; border: 2px solid transparent; }
 
 /* ---------- top bar ---------- */
 .topbar { height: 52px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--panel); border-bottom: 1px solid var(--border); z-index: 20; }
+/* The CodeLab logo and name in the top left corner. */
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 17px; color: var(--text); text-decoration: none; letter-spacing: -.2px; margin-right: 6px; }
 .brand svg { width: 26px; height: 26px; }
 .brand b { color: var(--accent); }
+/* An invisible stretchy box that pushes the items after it to the far right.
+   "flex: 1" means "take up all the leftover space". */
 .spacer { flex: 1; }
 .tools { display: flex; align-items: center; gap: 6px; }
 .sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+/* BUTTONS. .btn is the base look for every button. Extra classes change it:
+     .primary = green main action (Run), .danger = red (Stop),
+     .on = a toggle that is switched on, .sm = small, .ghost = no background.
+   "transition" animates changes smoothly instead of jumping instantly. */
 .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--panel2); padding: 5px 11px; border-radius: 8px; line-height: 1.3; white-space: nowrap; transition: background .12s, border-color .12s, transform .05s; }
 .btn:hover { background: var(--panel3); }
 .btn:active { transform: translateY(1px); }
@@ -48,11 +98,18 @@ code, pre, kbd { font-family: var(--mono); }
 .btn.sm { padding: 2px 8px; font-size: 12px; border-radius: 6px; }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
 .btn.ghost:hover { background: var(--panel2); color: var(--text); }
+/* The little red dot on the Terminal button. It is hidden until the button
+   gets the class "alert" (an error happened while the terminal was hidden),
+   then it pulses using the "pulse" animation defined just below. */
 .btn .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); display: none; }
 .btn.alert .dot { display: inline-block; animation: pulse 1s infinite; }
+/* @keyframes defines an animation: halfway through (50%) it becomes faded. */
 @keyframes pulse { 50% { opacity: .3; } }
 kbd { background: var(--panel3); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; font-size: 11px; color: var(--muted); }
 .langdot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+/* DROP DOWN MENU (the language picker). position: relative on the wrapper
+   plus position: absolute on the menu makes the menu float just below its
+   button. z-index controls stacking: higher numbers sit on top. */
 .menu-wrap { position: relative; }
 .menu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 230px; max-height: 70vh; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; z-index: 50; }
 .menu.right { left: auto; right: 0; }
@@ -66,6 +123,8 @@ kbd { background: var(--panel3); border: 1px solid var(--border); border-radius:
 #home { flex: 1; overflow: auto; }
 .hero { max-width: 1100px; margin: 0 auto; padding: 56px 24px 20px; text-align: center; }
 .hero h1 { font-size: clamp(30px, 5vw, 52px); line-height: 1.1; margin: 0 0 14px; letter-spacing: -1px; }
+/* The colourful "actually coding" words: a gradient (a smooth blend of two
+   colours) is painted behind the text, then clipped to the letter shapes. */
 .hero h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero p { color: var(--muted); font-size: 18px; max-width: 700px; margin: 0 auto 22px; }
 .hero .cta { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
@@ -74,21 +133,33 @@ kbd { background: var(--panel3); border: 1px solid var(--border); border-radius:
 .section h2 { font-size: 20px; margin: 18px 0 12px; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
 .filters input { flex: 1; min-width: 180px; max-width: 320px; }
+/* FORM CONTROLS: text boxes, search boxes, drop downs and text areas.
+   :focus styles the control you are currently typing in, so keyboard users
+   can always see where they are. */
 input[type="text"], input[type="search"], select, textarea { background: var(--panel2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; }
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 0; }
 .chip { border: 1px solid var(--border); background: var(--panel2); border-radius: 99px; padding: 2px 11px; font-size: 12.5px; color: var(--muted); }
 .chip.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+/* LANGUAGE CARDS on the home screen. display: grid is CSS GRID, a layout
+   system for rows AND columns. "repeat(auto-fill, minmax(250px, 1fr))" means
+   "fit as many columns as possible, each at least 250px wide", so the grid
+   automatically adapts to any screen size. */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
 .card { position: relative; text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--text); transition: transform .12s, border-color .12s, box-shadow .12s; overflow: hidden; }
 .card:hover { transform: translateY(-3px); border-color: var(--lc, var(--accent)); box-shadow: var(--shadow); }
+/* ::before adds the coloured strip along the top of each card. --lc is set
+   on each card by JavaScript to that language's own colour. */
 .card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--lc, var(--accent)); }
 .card .badge-lg { width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center; font: 700 17px var(--mono); color: #fff; background: var(--lc, var(--accent)); }
 .card h3 { margin: 4px 0 0; font-size: 17px; }
 .card p { margin: 0; color: var(--muted); font-size: 13.5px; flex: 1; }
 .card .meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+/* "Pills" are small rounded labels like "Runs instantly" or "Cloud compiler". */
 .pill { border-radius: 99px; padding: 1px 8px; font-size: 11.5px; border: 1px solid var(--border); background: var(--panel2); color: var(--muted); }
 .pill.live { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, var(--border)); }
 .pill.cloud { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+/* Progress bars (how much of a guide you have finished). The inner <i>
+   element's width is set by JavaScript, for example to 40%. */
 .bar { height: 5px; border-radius: 4px; background: var(--panel3); overflow: hidden; }
 .bar > i { display: block; height: 100%; background: var(--accent2); width: 0; transition: width .3s; }
 .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
@@ -98,12 +169,18 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .footer { text-align: center; color: var(--muted); padding: 30px; font-size: 13px; }
 
 /* ---------- IDE layout ---------- */
+/* #ide is the whole coding screen: guide | editor | visualizer side by side.
+   min-height: 0 and min-width: 0 let flex children shrink so their own
+   contents can scroll instead of pushing the page wider. */
 #ide { flex: 1; display: flex; min-height: 0; min-width: 0; }
 .pane { background: var(--panel); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 /* Side panels keep their chosen width when there's room, but shrink (down to 240px) so the editor never drops below 360px. */
 #guide { width: 400px; flex: 0 1 auto; min-width: 240px; }
 #viz { width: 380px; flex: 0 1 auto; min-width: 240px; }
 #center { flex: 1 1 0; display: flex; flex-direction: column; min-width: 360px; container-type: inline-size; }
+/* container-type (on #center above) lets CSS react to the EDITOR COLUMN's
+   width, not the window's. The bars below never wrap onto a second line;
+   the @container rule further down hides minor labels when space is tight. */
 #center .editor-bar { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
 #center .statusbar, #termPanel .pane-head { white-space: nowrap; overflow: hidden; }
 /* When the editor column is narrow (side panels open on a small screen), drop secondary labels instead of wrapping. */
@@ -111,12 +188,18 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
   .statusbar > span:last-child, #sbEngine, .stdin label, #termPanel .opt-text { display: none; }
   .editor-bar .btn.sm { padding: 2px 6px; }
 }
+/* "Full page" guide mode: JavaScript adds the class guide-full and these
+   rules hide the editor and visualizer so the guide fills the screen. */
 #ide.guide-full #center, #ide.guide-full #viz, #ide.guide-full .splitter { display: none; }
 #ide.guide-full #guide { width: auto; flex: 1; }
 #ide.guide-full .guide-body { max-width: 900px; margin: 0 auto; width: 100%; }
+/* SPLITTERS: the thin bars you drag to resize panels. cursor changes the
+   mouse pointer to a resize arrow. .h is the horizontal one above the terminal. */
 .splitter { flex: none; width: 5px; background: var(--border); cursor: col-resize; position: relative; transition: background .12s; }
 .splitter:hover, .splitter.drag { background: var(--accent); }
 .splitter.h { width: auto; height: 5px; cursor: row-resize; }
+/* The header strip at the top of each panel, and the tabs inside it. The
+   tab that is selected has the class "on" and gets a coloured underline. */
 .pane-head { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 38px; border-bottom: 1px solid var(--border); background: var(--panel); }
 .pane-head h3 { margin: 0; font-size: 12.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); }
 .tabs { display: flex; gap: 2px; }
@@ -134,6 +217,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .sec.done { border-color: color-mix(in srgb, var(--ok) 50%, var(--border)); }
 .sec-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 0; }
 .sec-head h4 { margin: 0; font-size: 15px; flex: 1; }
+/* Level badges on each guide section: green = beginner, amber =
+   intermediate, red = advanced. color-mix() blends two colours, here a
+   faint tint of the badge colour for the background. */
 .lvl { font-size: 11px; padding: 1px 8px; border-radius: 99px; font-weight: 600; text-transform: capitalize; }
 .lvl.beginner { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .lvl.intermediate { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
@@ -141,12 +227,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .sec-body { padding: 6px 12px 10px; font-size: 13.5px; }
 .sec-body p { margin: 6px 0; }
 .sec-body code, .tip code, .chal code, .viz-body code, .te-hint code { background: var(--panel3); padding: 0 5px; border-radius: 4px; font-size: 12.5px; }
+/* Code examples inside the guide, with their Copy / Load / Run buttons.
+   <pre> keeps the code's spaces and line breaks exactly as written. */
 .codeblock { position: relative; margin: 8px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--editor-bg); }
 .codeblock pre { margin: 0; padding: 10px 12px; overflow: auto; font-size: 12.5px; line-height: 1.55; tab-size: 4; }
 .codeblock .acts { display: flex; gap: 6px; padding: 5px 8px; border-top: 1px solid var(--border); background: var(--panel); border-radius: 0 0 8px 8px; align-items: center; }
 .codeblock .acts .grow { flex: 1; font-size: 11.5px; color: var(--muted); }
+/* The "Going deeper" boxes. <details> is an HTML element that can be opened
+   and closed by clicking its <summary> line. */
 details.deep { margin: 6px 0 2px; border-left: 3px solid var(--accent); padding-left: 10px; }
 details.deep summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 12.5px; }
+/* Best practice tips and challenge cards in the guide's other two tabs. */
 .tip { display: flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel2); margin-bottom: 8px; font-size: 13.5px; }
 .tip i { font-style: normal; font-size: 16px; }
 .chal { border: 1px solid var(--border); border-radius: 12px; background: var(--panel2); padding: 12px; margin-bottom: 12px; }
@@ -161,6 +252,10 @@ details.deep summary { cursor: pointer; color: var(--accent); font-weight: 600; 
 .editor-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 0 10px; height: 38px; background: var(--panel); border-bottom: 1px solid var(--border); }
 .filetab { display: flex; align-items: center; gap: 7px; padding: 0 12px; height: 100%; border-bottom: 2px solid var(--accent); font: 13px var(--mono); }
 #editorWrap { flex: 1; min-height: 80px; position: relative; background: var(--editor-bg); }
+/* THE CODE EDITOR. CodeMirror (the editor library) creates its own elements
+   with class names starting "CodeMirror". These rules recolour them to match
+   CodeLab's theme: the line number "gutter" (the column on the left), the
+   blinking cursor, selected text, the current line and matching brackets. */
 #editorWrap .CodeMirror { position: absolute; inset: 0; height: 100%; background: var(--editor-bg); color: var(--text); font-family: var(--mono); font-size: var(--fs); line-height: 1.6; }
 .CodeMirror-gutters { background: var(--editor-bg); border-right: 1px solid var(--border); }
 .CodeMirror-linenumber { color: var(--gutter); padding: 0 8px 0 6px; }
@@ -169,6 +264,9 @@ details.deep summary { cursor: pointer; color: var(--accent); font-weight: 600; 
 .CodeMirror-activeline-background { background: var(--active-line); }
 .CodeMirror-matchingbracket { color: var(--accent2) !important; background: color-mix(in srgb, var(--accent2) 20%, transparent); }
 .CodeMirror-nonmatchingbracket { color: var(--danger) !important; }
+/* SYNTAX HIGHLIGHTING. CodeMirror splits code into "tokens" (pieces such as
+   keywords, strings and numbers) and gives each a class like cm-keyword.
+   These rules colour each kind of token using the theme colours from :root. */
 .cm-s-learn .cm-keyword, .cm-s-learn .cm-atom, .cm-s-learn .cm-meta { color: var(--tk-kw); }
 .cm-s-learn .cm-string, .cm-s-learn .cm-string-2 { color: var(--tk-str); }
 .cm-s-learn .cm-number { color: var(--tk-num); }
@@ -184,28 +282,39 @@ details.deep summary { cursor: pointer; color: var(--accent); font-weight: 600; 
 .cm-s-learn .cm-error { color: var(--danger); }
 .cm-s-learn .cm-header { color: var(--tk-def); font-weight: bold; }
 .err-gutter { width: 16px; }
+/* GUTTER MARKERS: the small round icons beside line numbers. Red = error,
+   amber = warning, green arrow = the line the visualizer is on. */
 .gmark { display: block; width: 14px; height: 14px; line-height: 14px; text-align: center; font-size: 11px; border-radius: 50%; font-weight: 700; }
 .gmark.err { background: var(--danger); color: #fff; cursor: pointer; }
 .gmark.warn { background: var(--warn); color: #000; cursor: pointer; }
 .gmark.exec { background: none; color: var(--accent2); font-size: 14px; }
+/* Line highlights: a red tint for the error line, amber for warnings, green
+   for the line the visualizer is showing, and a wavy red underline under the
+   exact word the error points at. */
 .cm-err-line { background: color-mix(in srgb, var(--danger) 16%, transparent) !important; }
 .cm-warn-line { background: color-mix(in srgb, var(--warn) 14%, transparent) !important; }
 .cm-exec-line { background: color-mix(in srgb, var(--accent2) 20%, transparent) !important; box-shadow: inset 3px 0 0 var(--accent2); }
 .cm-err-text { text-decoration: underline wavy var(--danger); text-underline-offset: 3px; }
+/* The auto complete suggestion list that pops up while you type. */
 .CodeMirror-hints { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); font-family: var(--mono); font-size: 12.5px; z-index: 100; }
 li.CodeMirror-hint { color: var(--text); padding: 2px 8px; }
 li.CodeMirror-hint-active { background: var(--accent); color: var(--accent-ink); }
+/* The status bar under the editor (line and column, language, shortcuts). */
 .statusbar { flex: none; display: flex; gap: 14px; align-items: center; padding: 2px 12px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); background: var(--panel); height: 24px; }
 .statusbar .spacer { flex: 1; }
 
 /* ---------- terminal ---------- */
 #termPanel { flex: none; height: 240px; min-height: 90px; display: flex; flex-direction: column; background: var(--panel); }
 .term-body { flex: 1; overflow: auto; padding: 8px 12px; font: 13px/1.5 var(--mono); background: var(--editor-bg); white-space: pre-wrap; word-break: break-word; }
+/* Terminal text colours: normal output, errors (red), warnings (amber),
+   system messages from CodeLab (grey italic) and success messages (green). */
 .term-body .out { color: var(--text); }
 .term-body .err { color: var(--danger); }
 .term-body .warn { color: var(--warn); }
 .term-body .sys { color: var(--muted); font-style: italic; }
 .term-body .ok { color: var(--ok); }
+/* The red ERROR BOX: a header with the error type and a "Go to line" button,
+   the error text, and the yellow "What this means" explanation (.te-hint). */
 .term-error { border: 1px solid color-mix(in srgb, var(--danger) 55%, var(--border)); background: color-mix(in srgb, var(--danger) 9%, var(--editor-bg)); border-radius: 8px; margin: 8px 0; overflow: hidden; white-space: normal; }
 .te-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: color-mix(in srgb, var(--danger) 18%, transparent); font-weight: 700; color: var(--danger); }
 .te-head .te-line { margin-left: auto; font-weight: 500; color: var(--text); background: var(--panel3); border: 0; border-radius: 6px; padding: 1px 8px; cursor: pointer; font-size: 12px; }
@@ -213,11 +322,14 @@ li.CodeMirror-hint-active { background: var(--accent); color: var(--accent-ink);
 .term-error pre { margin: 0; padding: 8px 12px; white-space: pre-wrap; color: var(--danger); font-size: 12.5px; max-height: 220px; overflow: auto; }
 .te-hint { padding: 8px 12px 10px; border-top: 1px dashed var(--border); color: var(--text); font: 13px/1.5 var(--sans); }
 .te-hint b { color: var(--warn); }
+/* The "Program input" box under the terminal. */
 .stdin { flex: none; border-top: 1px solid var(--border); padding: 4px 10px; display: flex; gap: 8px; align-items: flex-start; background: var(--panel); }
 .stdin label { font-size: 12px; color: var(--muted); padding-top: 6px; white-space: nowrap; }
 .stdin textarea { flex: 1; height: 30px; min-height: 30px; max-height: 90px; resize: vertical; font: 12.5px var(--mono); padding: 4px 8px; }
+/* The Ready / Running / Finished / Error badge in the terminal header. */
 .status { font-size: 12px; padding: 1px 9px; border-radius: 99px; background: var(--panel3); color: var(--muted); }
 .status.running { color: var(--warn); } .status.ok { color: var(--ok); } .status.fail { color: var(--danger); }
+/* The HTML preview frame always has a white background, like a real web page. */
 #preview { flex: 1; border: 0; background: #fff; width: 100%; }
 
 /* ---------- visualizer ---------- */
@@ -230,16 +342,21 @@ li.CodeMirror-hint-active { background: var(--accent); color: var(--accent-ink);
 .viz-body { flex: 1; overflow: auto; padding: 10px 12px 30px; outline: none; }
 .viz-empty { color: var(--muted); text-align: center; padding: 30px 14px; }
 .viz-empty .btn { margin-top: 10px; }
+/* VISUALIZER: the caption card showing the current line and what it does. */
 .v-cap { background: var(--panel2); border: 1px solid var(--border); border-left: 4px solid var(--accent2); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
 .v-cap .ln { font: 12px var(--mono); color: var(--muted); }
 .v-cap .src { font: 13px var(--mono); margin: 2px 0 4px; white-space: pre-wrap; word-break: break-all; }
 .v-cap .why { font-size: 13px; }
 .v-h { font-size: 11.5px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 12px 0 5px; font-weight: 700; }
+/* The CALL STACK: the list of functions currently running, newest on top
+   (column-reverse flips the order). The selected one is outlined in green. */
 .stack { display: flex; flex-direction: column-reverse; gap: 4px; }
 .frame { border: 1px solid var(--border); background: var(--panel2); border-radius: 7px; padding: 4px 10px; font: 12.5px var(--mono); cursor: pointer; }
 .frame.sel { border-color: var(--accent2); background: color-mix(in srgb, var(--accent2) 13%, var(--panel2)); }
 .frame.top::after { content: " ← running"; color: var(--accent2); font-size: 11px; }
 .vars { display: grid; gap: 8px; }
+/* Variable cards. A card flashes amber when its value just changed and green
+   when the variable is brand new. .was shows the old value crossed out. */
 .var { border: 1px solid var(--border); border-radius: 9px; background: var(--panel2); padding: 6px 9px; transition: background .3s; }
 .var.changed { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--panel2)); animation: flash .9s; }
 .var.isnew { border-color: var(--accent2); background: color-mix(in srgb, var(--accent2) 12%, var(--panel2)); animation: flash .9s; }
@@ -247,23 +364,30 @@ li.CodeMirror-hint-active { background: var(--accent); color: var(--accent-ink);
 .var .vn { display: flex; align-items: center; gap: 6px; font: 600 12.5px var(--mono); margin-bottom: 4px; }
 .var .vt { font: 10.5px var(--sans); font-weight: 600; color: var(--muted); border: 1px solid var(--border); padding: 0 6px; border-radius: 99px; }
 .var .was { font: 11px var(--mono); color: var(--warn); margin-left: auto; text-decoration: line-through; opacity: .8; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* "Primitive" values (single values like 5, "hi", true), coloured by type. */
 .prim { font: 13px var(--mono); padding: 1px 7px; border-radius: 6px; background: var(--panel3); display: inline-block; }
 .prim.t-int, .prim.t-float { color: var(--tk-num); } .prim.t-str { color: var(--tk-str); } .prim.t-bool { color: var(--tk-kw); } .prim.t-none { color: var(--muted); }
+/* Lists / arrays are drawn as a row of boxes, each with its index (position
+   number) on top. */
 .arr { display: flex; flex-wrap: wrap; gap: 0; }
 .arr .cell { border: 1px solid var(--border); margin-right: -1px; text-align: center; min-width: 38px; background: var(--panel); }
 .arr .cell .idx { display: block; font: 10px var(--mono); color: var(--muted); border-bottom: 1px solid var(--border); background: var(--panel3); }
 .arr .cell .val { display: block; padding: 3px 6px; font: 13px var(--mono); }
 .arr .more { align-self: center; padding-left: 8px; color: var(--muted); font-size: 12px; }
+/* Dictionaries / objects (key and value pairs) are drawn as two column tables. */
 table.kv { border-collapse: collapse; font: 12.5px var(--mono); }
 table.kv td { border: 1px solid var(--border); padding: 2px 8px; vertical-align: top; }
 table.kv td.k { background: var(--panel3); color: var(--tk-prop); }
 .ret { display: inline-flex; gap: 6px; align-items: center; background: color-mix(in srgb, var(--accent) 18%, transparent); border-radius: 6px; padding: 2px 8px; font: 12.5px var(--mono); margin-bottom: 8px; }
 .outbox { background: var(--editor-bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: 12.5px var(--mono); white-space: pre-wrap; max-height: 150px; overflow: auto; min-height: 30px; }
+/* SQL mode: database tables and query results. */
 .dbtable { margin: 4px 0 10px; overflow: auto; }
 .dbtable .tn { font: 700 12.5px var(--mono); color: var(--accent); }
 table.data { border-collapse: collapse; font: 12.5px var(--mono); margin-top: 3px; }
 table.data th { background: var(--panel3); text-align: left; }
 table.data th, table.data td { border: 1px solid var(--border); padding: 2px 8px; }
+/* HTML mode: the page's element tree. Elements not reached yet are faded,
+   and the current one is highlighted. */
 .tree { font: 12.5px var(--mono); }
 .tree .node { padding: 1px 6px; border-radius: 5px; white-space: nowrap; opacity: .35; }
 .tree .node.seen { opacity: 1; }
@@ -273,6 +397,8 @@ table.data th, table.data td { border: 1px solid var(--border); padding: 2px 8px
 /* ---------- misc ---------- */
 #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--panel3); border: 1px solid var(--border); padding: 9px 16px; border-radius: 10px; box-shadow: var(--shadow); opacity: 0; transition: .25s; pointer-events: none; z-index: 200; max-width: 90vw; }
 #toast.show { opacity: 1; transform: translateX(-50%); }
+/* A "modal" is a pop up box that darkens the page behind it (the keyboard
+   shortcuts list). position: fixed keeps it in place even if the page scrolls. */
 .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 150; }
 .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 22px; width: min(520px, 92vw); box-shadow: var(--shadow); max-height: 85vh; overflow: auto; }
 .modal h3 { margin: 0 0 10px; }
@@ -280,7 +406,13 @@ table.data th, table.data td { border: 1px solid var(--border); padding: 2px 8px
 .modal td { padding: 5px 4px; border-bottom: 1px solid var(--border); }
 .modal td:first-child { white-space: nowrap; }
 .empty { color: var(--muted); padding: 20px; text-align: center; }
+/* RESPONSIVE DESIGN: adapting to screen size. A "media query" (@media)
+   applies rules only when the condition is true.
+   On screens up to 1100px wide, the side panels start slightly narrower. */
 @media (max-width: 1100px) { #guide { width: 320px; } #viz { width: 320px; } }
+/* On phones and small tablets (860px wide or less) the three columns stack
+   vertically instead (editor first, thanks to order: -1), drag handles are
+   hidden, and less important labels are removed to save space. */
 @media (max-width: 860px) {
   #ide { flex-direction: column; overflow: auto; }
   #guide, #viz { width: auto !important; min-width: 0; height: 70vh; flex: none; }

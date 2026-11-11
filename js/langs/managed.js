@@ -1,9 +1,36 @@
+// ================================================================
+//  js/langs/managed.js: content for Java and C#
+// ================================================================
+//  This file holds DATA, not behaviour: each language's starter program,
+//  syntax guide lessons, tips and settings. The other JavaScript files
+//  (app.js, engines.js...) read this data to build the screens.
+//
+//  Every language object has the same fields; js/langs/web.js explains
+//  each field in detail at the top of that file.
+// ================================================================
 /* Java, C# */
+// window.LANGS is the shared list of languages that every language file
+// adds to. "|| []" means: if no earlier file has created the list yet,
+// start an empty one. (window is the browser's shared "global" object.)
 window.LANGS = window.LANGS || [];
+// IIFE wrapper: a function that runs immediately, keeping helper names
+// like R private to this file (see app.js for more on this).
 (function () {
+  // R is a shortcut for String.raw. Code examples are written between
+  // backticks ` ` (a "template literal", JavaScript text that can span
+  // many lines). String.raw keeps every backslash exactly as typed, so
+  // code like printf("\n") stays correct instead of \n turning into a
+  // real line break. No // comments can go INSIDE these examples, because
+  // they would become part of the example code itself.
   const R = String.raw;
 
   /* ===================================================================== Java */
+  // JAVA
+  // Compiled on Wandbox ("slow": can take 20 to 60 seconds). Wandbox
+  // saves the code as prog.java, and Java won't compile a PUBLIC class
+  // named Main in a file with a different name, so "transform" quietly
+  // removes the word public from "public class Main" before sending it.
+  // The line count stays the same, so error line numbers still match.
   LANGS.push({
     id: 'java', name: 'Java', tag: 'Java', color: '#e76f00', file: 'Main.java', cmd: 'javac Main.java && java Main',
     kind: 'cloud', engine: 'wandbox', trace: 'explain', mode: 'text/x-java', indent: 4, comment: ['//'],
@@ -15,6 +42,7 @@ window.LANGS = window.LANGS || [];
     intro: 'Java is a statically typed, object-oriented language that compiles to bytecode for the Java Virtual Machine (JVM). Every piece of code lives inside a **class**, and programs start at `public static void main(String[] args)`. Code is compiled with OpenJDK 22 on the Wandbox service — Java compilation there can take 10–30 seconds.',
     docs: 'https://dev.java/learn/',
     keywords: ['public', 'private', 'protected', 'static', 'final', 'class', 'interface', 'extends', 'implements', 'abstract', 'void', 'int', 'double', 'boolean', 'char', 'long', 'String', 'new', 'return', 'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'break', 'continue', 'try', 'catch', 'finally', 'throw', 'throws', 'this', 'super', 'null', 'true', 'false', 'import', 'System', 'out', 'println', 'printf', 'ArrayList', 'HashMap', 'List', 'Map', 'Scanner', 'length', 'size', 'record', 'var'],
+    // The starter program shown the first time you open Java.
     starter: R`// Welcome to Java! Press ▶ Run (or Ctrl+Enter).
 // Java is compiled on the free Wandbox service (needs internet; can take ~20s).
 import java.util.*;
@@ -40,6 +68,7 @@ public class Main {
     }
 }
 `,
+    // Java syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Program structure & Hello, World', level: 'beginner', full: true,
         body: "All Java code lives inside a **class**. The program starts at the `main` method, whose signature is always `public static void main(String[] args)`. `System.out.println` prints a line. Statements end with `;` and blocks use `{ }`.",
@@ -376,6 +405,7 @@ public class Main {
 }`,
         deep: "Streams are lazy and single-use. Prefer method references (`String::length`) when they read clearly, avoid side-effects inside stream operations, and remember a plain loop is sometimes clearer. Generics use type erasure: type parameters don't exist at runtime." }
     ],
+    // Java best practices (the "Best practices" tab).
     tips: [
       'Follow conventions: `PascalCase` classes, `camelCase` methods and variables, `UPPER_SNAKE_CASE` constants, one public class per file.',
       'Compare strings and objects with `.equals()`, not `==`.',
@@ -386,6 +416,7 @@ public class Main {
       'Catch specific exceptions and never leave an empty `catch` block.',
       'Prefer `StringBuilder` for building strings in loops, and the Stream API for clear collection processing.'
     ],
+    // Common Java beginner mistakes.
     pitfalls: [
       'Forgetting a semicolon or a closing brace.',
       'Comparing strings with `==`.',
@@ -396,6 +427,10 @@ public class Main {
   });
 
   /* ===================================================================== C# */
+  // C#
+  // Compiled with Mono (an older C# compiler) on Wandbox, because the
+  // newer .NET compiler there is too slow. Examples therefore avoid the
+  // very newest C# syntax.
   LANGS.push({
     id: 'csharp', name: 'C#', aka: 'csharp dotnet .net', tag: 'C#', color: '#68217a', file: 'Program.cs', cmd: 'csc Program.cs && mono Program.exe',
     kind: 'cloud', engine: 'wandbox', wb: { lang: 'C#', prefer: /^mono/ }, trace: 'explain', mode: 'text/x-csharp', indent: 4, comment: ['//'],
@@ -405,6 +440,7 @@ public class Main {
     intro: 'C# is a statically typed, object-oriented language with strong functional features (LINQ, lambdas) running on .NET. It\'s the scripting language of the Unity game engine. Code here is compiled with **Mono** (C# 7) on the Wandbox service, so examples avoid the very newest syntax; newer features such as records and switch expressions are described under "Going deeper".',
     docs: 'https://learn.microsoft.com/dotnet/csharp/',
     keywords: ['using', 'namespace', 'class', 'struct', 'interface', 'enum', 'public', 'private', 'protected', 'internal', 'static', 'readonly', 'const', 'void', 'int', 'double', 'decimal', 'bool', 'char', 'string', 'var', 'new', 'return', 'if', 'else', 'for', 'foreach', 'in', 'while', 'do', 'switch', 'case', 'break', 'continue', 'try', 'catch', 'finally', 'throw', 'this', 'base', 'null', 'true', 'false', 'override', 'virtual', 'abstract', 'get', 'set', 'async', 'await', 'Console', 'WriteLine', 'List', 'Dictionary', 'Where', 'Select', 'ToList', 'Count'],
+    // The starter program shown the first time you open C#.
     starter: R`// Welcome to C#! Press ▶ Run (or Ctrl+Enter).
 // C# is compiled on the free Wandbox service (needs internet).
 using System;
@@ -433,6 +469,7 @@ class Program
     }
 }
 `,
+    // C# syntax guide lessons, from beginner to advanced.
     sections: [
       { id: 'hello', title: 'Program structure & Hello, World', level: 'beginner', full: true,
         body: "`using System;` gives access to `Console`. Code lives in classes, and execution starts in the `static void Main()` method. `Console.WriteLine` prints a line; `Console.Write` doesn't add a newline.",
@@ -820,6 +857,7 @@ class Program
 }`,
         deep: "Modern C# allows `static async Task Main()` directly. Avoid `async void` except for event handlers, pass `CancellationToken`s through async APIs, and never block on async code with `.Result` in UI or ASP.NET contexts (deadlock risk)." }
     ],
+    // C# best practices (the "Best practices" tab).
     tips: [
       'Follow .NET naming: `PascalCase` for classes, methods and properties; `camelCase` for locals and parameters; `_camelCase` for private fields; interfaces start with `I`.',
       'Use properties instead of public fields, and make them read-only when possible.',
@@ -830,6 +868,7 @@ class Program
       'Dispose resources with `using`, and use `async`/`await` all the way for I/O.',
       'Enable nullable reference types and treat warnings as errors in real projects.'
     ],
+    // Common C# beginner mistakes.
     pitfalls: [
       'Forgetting `break` at the end of a `switch` case (it\'s a compile error in C#).',
       'Integer division: `7 / 2` is `3`.',
