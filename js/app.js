@@ -435,7 +435,15 @@
     }
     $('ide').classList.toggle('guide-full', !!(opts && opts.guide));
     if (opts && opts.guide) S.ui.guide = true;
-    if (opts && opts.code !== undefined) { setCode(opts.code, false); toast('Loaded shared code.'); }
+    if (opts && opts.code !== undefined) {
+      // Load shared code as an undoable edit, like Reset and "Load in editor", so it never silently destroys
+      // the visitor's own saved code for this language (Ctrl+Z brings it back, and autosave then re-saves it).
+      const previous = S.cm.getValue();
+      setCode(opts.code, true);
+      toast(previous.trim() && previous !== lang.starter && previous !== opts.code
+        ? 'Loaded shared code. Your previous ' + esc(lang.name) + ' code was replaced — press Ctrl+Z to get it back.'
+        : 'Loaded shared code.', previous !== lang.starter ? 6000 : undefined);
+    }
     applyLayout();
     if (lang.engine === 'html' && changed && S.cm.getValue().trim()) {
       // In browsers that run the preview on the page's own thread, saved code with an endless loop could freeze
